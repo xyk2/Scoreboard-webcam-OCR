@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title>Choxue Scoreboard</title>
+		<link rel="stylesheet/less" type="text/css" href="style.less">
+		<script src="http://cdnjs.cloudflare.com/ajax/libs/less.js/1.5.0/less.min.js"></script>
+		<script src="//code.jquery.com/jquery-latest.min.js"></script>
+		<script src="//cdnjs.cloudflare.com/ajax/libs/knockout/3.3.0/knockout-min.js"></script>
+		<script src="//cdnjs.cloudflare.com/ajax/libs/knockout.mapping/2.4.1/knockout.mapping.js"></script>
+
+		<script>
+			$(document).ready(function() {
+				var sock = null;
+				var ellog = null;
+				window.onload = function() {
+					var wsuri;
+					ellog = document.getElementById('log');
+					if (window.location.protocol === "file:") wsuri = "ws://localhost:9000";
+					else wsuri = "ws://" + window.location.hostname + ":9000";
+					if ("WebSocket" in window) {
+						sock = new WebSocket(wsuri);
+					} else if ("MozWebSocket" in window) {
+						sock = new MozWebSocket(wsuri);
+					} else {
+						log("Browser does not support WebSocket!");
+						window.location = "http://autobahn.ws/unsupportedbrowser";
+					}
+					if (sock) {
+						sock.onopen = function() {
+							log("Connected to " + wsuri);
+						}
+						sock.onclose = function(e) {
+							log("Connection closed (wasClean = " + e.wasClean + ", code = " + e.code + ", reason = '" + e.reason + "')");
+							sock = null;
+						}
+						sock.onmessage = function(e) {
+							//log("Got echo: " + e.data);
+							console.log(e.data);
+							ko.mapping.fromJS(JSON.parse(e.data), viewModel);
+						}
+					}
+				};
+				function broadcast() {
+					var msg = document.getElementById('message').value;
+					if (sock) {
+						sock.send(msg);
+						log("Sent: " + msg);
+					} else {
+						log("Not connected.");
+					}
+				};
+				function log(m) {
+					ellog.innerHTML += m + '\n';
+					ellog.scrollTop = ellog.scrollHeight;
+				};
+
+				vm = {
+					ticker: ko.observable("SBL SUMMER LEAGUE"),
+					game: {
+						clock: ko.observable("12:00"),
+						shot_clock: ko.observable("24"),
+						quarter: ko.observable("1st"),
+						possesion: ko.observable(""),
+					},
+					guest: {
+						score: ko.observable("0"),
+						fouls: ko.observable(""),
+						name: ko.observable(""),
+						imagePath: ko.observable(""),
+						color: ko.observable("")
+					},
+					home: {
+						score: ko.observable("0"),
+						fouls: ko.observable(""),
+						name: ko.observable(""),
+						imagePath: ko.observable(""),
+						color: ko.observable("")
+					}
+				}
+
+
+				var viewModel = ko.mapping.fromJS(vm);
+
+				viewModel.computedQuarter = ko.computed(function() {
+			        if(this.game.quarter() == "1" || this.game.quarter() == 1) return "1st";
+			        if(this.game.quarter() == "2" || this.game.quarter() == 2) return "2nd";
+			        if(this.game.quarter() == "3" || this.game.quarter() == 3) return "3rd";
+			        if(this.game.quarter() == "4" || this.game.quarter() == 4) return "4th";
+			        if(this.game.quarter() == "5" || this.game.quarter() == 5) return "ot";
+			        if(this.game.quarter() == "6" || this.game.quarter() == 6) return "ot2";
+			        if(this.game.quarter() == "7" || this.game.quarter() == 7) return "ot3";
+			        else return this.game.quarter();
+			    }, viewModel);
+
+				viewModel.guestFouls = ko.computed(function() {
+			        return parseInt(this.guest.fouls());
+			    }, viewModel);
+				viewModel.homeFouls = ko.computed(function() {
+			        return parseInt(this.home.fouls());
+			    }, viewModel);
+
+				ko.applyBindings(viewModel);
+			});
+		</script>
+	<body>
+			<pre id="log" style="display:none;position:absolute;bottom:0;width:100%;height: 5em; overflow-y: hidden; background-color: #faa;"></pre>
+
+		<span id='container' style='display:block; position:absolute; top:0;border:1px solid red;width:1280px;height:720px;-webkit-transform: scale(1.5);-webkit-transform-origin-x: 0;-webkit-transform-origin-y: 0;'>
+
+			<div id='scoreboard' style='    margin-top: 539px;
+    -webkit-transform: scale(0.8);
+    margin-left: 130px;'>
+
+				<div class='foul' style='left: 200px;' data-bind='visible: homeFouls() >= 1'></div>
+				<div class='foul' style='left: 225px;' data-bind='visible: homeFouls() >= 2'></div>
+				<div class='foul' style='left: 250px;' data-bind='visible: homeFouls() >= 3'></div>
+				<div class='foul' style='left: 275px;' data-bind='visible: homeFouls() >= 4'></div>
+				<div class='foul' style='left: 300px;' data-bind='visible: homeFouls() >= 5'></div>
+
+				<div class='foul' style='left: 440px;' data-bind='visible: guestFouls() >= 1'></div>
+				<div class='foul' style='left: 465px;' data-bind='visible: guestFouls() >= 2'></div>
+				<div class='foul' style='left: 490px;' data-bind='visible: guestFouls() >= 3'></div>
+				<div class='foul' style='left: 515px;' data-bind='visible: guestFouls() >= 4'></div>
+				<div class='foul' style='left: 540px;' data-bind='visible: guestFouls() >= 5'></div>
+				<div id="scorebox_container">
+					<img id="bg_scoreboard" src='scoreboard.png'></img>
+					<div id="logo_container">
+						<img id="logo" src='logo.png'></img>
+					</div>
+
+					<div id="shotclock_container">
+						<h3 data-bind='text: game.shot_clock()'>24</h3>
+					</div>
+					<div id="clock_container">
+						<h3 data-bind='text: game.clock()'>5:43</h3>
+					</div>
+					<div id="quarter_container">
+						<h3 data-bind='text: computedQuarter()'>2nd</h3>
+					</div>
+
+					<div id="away_logo_container" class="logo_container">
+						<img data-bind='attr: {src: guest.imagePath() }'>
+					</div>
+					<div id="away_score_container">
+						<h3 data-bind='text: guest.score()'>99</h3>
+					</div>
+					<div id="away_name_container" class='name_container' data-bind='style: { backgroundColor: guest.color() }'>
+						<h3 data-bind='text: guest.name()'></h3>
+					</div>
+
+
+					<div id="home_logo_container" class="logo_container">
+						<img data-bind='attr: {src: home.imagePath() }'>
+					</div>
+					<div id="home_score_container">
+						<h3 data-bind='text: home.score()'>99</h3>
+					</div>
+					<div id="home_name_container" class='name_container' data-bind='style: { backgroundColor: home.color() }'>
+						<h3 data-bind='text: home.name()'></h3>
+					</div>
+
+					<div id="subtitle_container">
+						<h3 data-bind='text: ticker()'>SBL SUMMER LEAGUE</h3>
+					</div>
+				</div>
+			</div>
+		</span>
+	</body>
+</html>

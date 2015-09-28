@@ -1,0 +1,214 @@
+html, body, div, span, applet, object, iframe,h1, h2, h3, h4, h5, h6, p, blockquote, pre,a, abbr, acronym, address, big, cite, code,del, dfn, em, img, ins, kbd, q, s, samp,small, strike, strong, sub, sup, tt, var,b, u, i, center,dl, dt, dd, ol, ul, li,fieldset, form, label, legend,table, caption, tbody, tfoot, thead, tr, th, td,article, aside, canvas, details, embed, figure, figcaption, footer, header, hgroup, menu, nav, output, ruby, section, summary,time, mark, audio, video {	margin: 0;	padding: 0;	border: 0;	font-size: 100%;	font: inherit;	vertical-align: baseline;}
+article, aside, details, figcaption, figure,footer, header, hgroup, menu, nav, section {display: block;}
+body {line-height:1;font-family:Open Sans;}
+
+@scoreboard_url: "scoreboard.png";
+
+@font-face {
+	font-family: KlavikaMedCaps;
+	src: url('https://cdn.rawgit.com/achalaggarwal/mayhem/master/Server/public/fonts/klavikamedcaps-sc.woff');
+}
+
+@font-face {
+	font-family: JhengHeiBold;
+	src: url('msjhbd.ttf');
+}
+html {
+	overflow:hidden;
+	background-color:rgb(0,255,0);
+}
+
+
+.zoomin {
+	zoom: 1;
+	margin-left: 0px;
+	margin-top: 0px;
+	position:absolute;
+}
+
+.global_reset {
+	position: absolute;
+	top: 0;
+}
+
+.global_text_blur {
+	text-shadow: 1px 0px 7px rgba(0, 0, 0, 0.81);
+}
+
+.global_WxH {
+	width:100%;
+	height:100%;
+}
+
+
+#scoreboard {
+	.global_WxH;
+	color:white;
+	position:absolute;
+
+	#bg_scoreboard {
+		position:absolute;
+		width:1000px;
+		margin:0 auto;
+	}
+
+	h1, h2, h3, h4, h5 {
+		font-family: KlavikaMedCaps, JhengHeiBold;
+	}
+
+	#logo_container {
+	    position: absolute;
+	    left: 10px;
+	    top: 3px;
+	    width: 165px;
+	    height: 46px;
+	    img {
+	    	width: 140px;
+		    margin-top: 13px;
+		    margin-left: 11px;
+	    }
+	}
+
+	#shotclock_container {
+	    position: absolute;
+	    left: 909px;
+	    top: 3px;
+	    width: 76px;
+	    height: 46px;
+	    text-align: center;
+		h3 {
+			font-size:31pt;
+			color:white;
+			transform: scaleY(1.2);
+		}
+	}
+
+	#clock_container {
+	    position: absolute;
+ 	   left: 769px;
+ 	   top: 1px;
+ 	   width: 134px;
+	    height: 46px;
+	    text-align: center;
+		h3 {
+			font-size:31pt;
+			color:black;
+			transform: scaleY(1.2);
+		}
+	}
+
+	#quarter_container {
+	    position: absolute;
+	    left: 656px;
+	    top: 4px;
+	    width: 108px;
+	    height: 46px;
+	    text-align: center;
+		h3 {
+			font-size:28pt;
+			color:black;
+			transform: scaleY(1.2);
+		}
+	}
+
+	#subtitle_container {
+	    position: absolute;
+	    left: 10px;
+	    top: 62px;
+	    width: 979px;
+	    height: 40px;
+	    text-align: center;
+		h3 {
+			font-size: 23pt;
+		    margin-top: 3px;
+		    color: white;
+		}
+	}
+
+	#away_score_container {
+	    position: absolute;
+	    left: 576px;
+	    top: 3px;
+	    width: 68px;
+	    height: 46px;
+	    text-align: center;
+		h3 {
+			.score_h3;
+		}
+	}
+
+	.name_container {
+		position: absolute;
+	    width: 158px;
+	    height: 48px;
+		line-height: 52px;
+		text-align: center;
+		background-color: #523A97;
+		z-index: -1;
+		-webkit-box-shadow: inset 0px 0px 24px 4px rgba(0,0,0,0.5);
+
+		h3 {
+			color:white;
+			font-weight:bold;
+			font-size: 24pt;
+			margin-left: 44px;
+		}
+	}
+
+	#away_name_container {
+		left: 416px;
+	    top: 2px;
+	}
+	#home_name_container {
+		left: 180px;
+	    top: 2px;
+	}
+
+	#home_score_container {
+	    position: absolute;
+	    left: 340px;
+	    top: 3px;
+	    width: 68px;
+	    height: 46px;
+	    text-align: center;
+		h3 {
+			.score_h3;
+		}
+	}
+	.logo_container {
+	    position: absolute;
+	    width: 48px;
+	    height: 48px;
+	    line-height: 52px;
+	    img {
+			max-width: 80%;
+			margin: 10%;
+	    }
+	}
+
+	#home_logo_container {
+		left: 180px;
+	    top: 2px;
+	}
+	#away_logo_container {
+		left: 416px;
+	    top: 2px;
+	}
+
+	.foul {
+		position: absolute;
+	    background-color: yellow;
+	    width: 15px;
+	    height: 6px;
+	    z-index: 100;
+	    top: 55px;
+	}
+}
+
+
+
+.score_h3 {
+	font-size:28pt;
+	color:white;
+	transform: scaleY(1.2);
+}
