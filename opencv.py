@@ -4,9 +4,6 @@ import psutil
 import subprocess 
 import os
 
-refPtA = (0,0)
-refPtB = (0,0)
-cropping = False
 mouse_coordinates = [0, 0]
 
 coord_home_score = [(0, 0), (0, 0)]
@@ -19,26 +16,12 @@ CACHE_IMAGE_PATH = os.path.abspath(os.path.dirname(__file__)) + '/' + CACHE_IMAG
 print SSOCR_PATH
 print CACHE_IMAGE_PATH
 
-def click_and_crop(event, x, y, flags, param):
+def mouse_hover_coordinates(event, x, y, flags, param):
 	# grab references to the global variables
-	global refPtA, refPtB, cropping, mouse_coordinates
- 
-	# if the left mouse button was clicked, record the starting
-	# (x, y) coordinates and indicate that cropping is being
-	# performed
+	global mouse_coordinates
+
 	if event == EVENT_MOUSEMOVE:
 		mouse_coordinates = [x, y]
-
-	if event == EVENT_LBUTTONDOWN:
-		refPtA = (x, y)
-		cropping = True
- 
-	# check to see if the left mouse button was released
-	elif event == EVENT_LBUTTONUP:
-		# record the ending (x, y) coordinates and indicate that
-		# the cropping operation is finished
-		refPtB = (x, y)
-		cropping = False
  
 
 
@@ -52,7 +35,7 @@ cam.set(cv.CV_CAP_PROP_FRAME_WIDTH, 640)
 cam.set(cv.CV_CAP_PROP_FRAME_HEIGHT, 360)
 
 namedWindow("image", CV_WINDOW_AUTOSIZE)
-setMouseCallback("image", click_and_crop)
+setMouseCallback("image", mouse_hover_coordinates)
 
 while True:
 	img = imread('flintridge_test.jpg')
