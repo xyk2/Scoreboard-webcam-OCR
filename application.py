@@ -20,6 +20,7 @@ import webbrowser
 import unicodecsv
 import glob
 
+import numpy
 from cv2 import * # OpenCV imports
 import psutil # CPU usage
 import subprocess # ssocr command line calling
@@ -91,13 +92,14 @@ class Window(QtGui.QWidget):
 		self.tickerTeamSelector.currentIndexChanged.connect(self.populatePlayersSelector)
 		self.initializeStatisticsSelectors() # Populate self.tickerTeamSelector and self.onAirStatsComboBoxes
 
-		grid.addWidget(self.createTeamNameGroup(), 2, 0, 2, 1) # MUST BE HERE, initializes all QObject lists
-		grid.addWidget(self.createTickerGraphicGroup(), 4, 0, 2, 1) # MUST BE HERE, initializes all QObject lists
-		grid.addWidget(self.createStatSelectorGroup(), 6, 0, 2, 1) # MUST BE HERE, initializes all QObject lists
-		grid.addWidget(self.updateScoreboard, 8, 0, 1, 1) # MUST BE HERE, initializes all QObject lists
+		grid.addWidget(self.createTeamNameGroup(), 0, 0, 2, 1) # MUST BE HERE, initializes all QObject lists
+		grid.addWidget(self.createTickerGraphicGroup(), 2, 0, 2, 1) # MUST BE HERE, initializes all QObject lists
+		grid.addWidget(self.createStatSelectorGroup(), 4, 0, 2, 1) # MUST BE HERE, initializes all QObject lists
+		grid.addWidget(self.createOCRGroup(), 0, 1, 6, 1) # MUST BE HERE, initializes all QObject lists
+		grid.addWidget(self.updateScoreboard, 6, 0, 1, 1) # MUST BE HERE, initializes all QObject lists
 		
 		self.init_WebSocketsWorker() # Start ws:// server at port 9000
-		self.init_OCRWorker() # Start OpenCV, open webcam
+		#self.init_OCRWorker() # Start OpenCV, open webcam
 
 		grid.setHorizontalSpacing(10)
 		grid.setVerticalSpacing(10)
@@ -232,7 +234,7 @@ class Window(QtGui.QWidget):
 
 		grid = QtGui.QGridLayout()
 		grid.setHorizontalSpacing(10)
-		grid.setVerticalSpacing(10)
+		grid.setVerticalSpacing(5)
 
 		for x, comboBox in enumerate(self.onAirStatsComboBoxes):
 			grid.addWidget(QtGui.QLabel(str(x+1) + ":"), x, 0)
@@ -249,7 +251,7 @@ class Window(QtGui.QWidget):
 
 		grid = QtGui.QGridLayout()
 		grid.setHorizontalSpacing(10)
-		grid.setVerticalSpacing(10)
+		grid.setVerticalSpacing(5)
 
 		grid.addWidget(QtGui.QLabel("Image URL"), 0, 2)
 		grid.addWidget(QtGui.QLabel("Color #Hex "), 0, 3)
@@ -266,6 +268,28 @@ class Window(QtGui.QWidget):
 		grid.setColumnStretch(1,100)
 		groupBox.setLayout(grid)
 		return groupBox
+
+	def createOCRGroup(self):
+		groupBox = QtGui.QGroupBox("Scoreboard OCR")
+		groupBox.setStyleSheet(GroupBoxStyleSheet)
+
+		# Select webcam dropdown
+		# Start OCR, Stop OCR
+		# XY values for each digit (Top Left, Bottom Right)
+		# Text box for ssocr command line arguments
+		# CPU usage %, write bytes
+
+
+
+		grid = QtGui.QGridLayout()
+		grid.setHorizontalSpacing(10)
+		grid.setVerticalSpacing(10)
+
+		grid.setColumnStretch(0,5)
+		grid.setColumnStretch(1,100)
+		groupBox.setLayout(grid)
+		return groupBox
+
 
 
 
@@ -364,8 +388,6 @@ class OCRWorker(QtCore.QThread):
 		self.cam = None # VideoCapture object, created in run()
 
 	def mouse_hover_coordinates(self, event, x, y, flags, param):
-		#global self.mouse_coordinates
-
 		if event == EVENT_MOUSEMOVE:
 			self.mouse_coordinates = [x, y]
 
