@@ -20,16 +20,12 @@ import webbrowser
 import unicodecsv
 import glob
 
-from cv2 import * # OpenCV imports
-import psutil # CPU usage
-import subprocess # ssocr command line calling
-
 
 GroupBoxStyleSheet = u"QGroupBox { border: 1px solid #AAAAAA;margin-top: 12px;} QGroupBox::title {top: -5px;left: 10px;}"
 
-class MainWindow(QtGui.QMainWindow):
+class Example(QtGui.QMainWindow):
 	def __init__(self, parent=None):
-		super(MainWindow, self).__init__(parent)
+		super(Example, self).__init__(parent)
 
 		######## QSettings #########
 		self.qsettings = QSettings('settings.ini', QSettings.IniFormat)
@@ -56,8 +52,9 @@ class MainWindow(QtGui.QMainWindow):
 		self.main_widget = Window(self)
 		self.setCentralWidget(self.main_widget)
 		self.statusBar()
-		self.setWindowTitle('Basketball OCR and Scoreboard Control')
-		self.resize(300,400)
+		self.setWindowTitle('Basketball Scoreboard Control')
+		#self.resize(700,750)
+		self.resize(500,400)
 		self.show()
 
 
@@ -68,6 +65,13 @@ class Window(QtGui.QWidget):
 		self.qsettings = QSettings('settings.ini', QSettings.IniFormat)
 		self.qsettings.setFallbacksEnabled(False)
 
+		self.reScanButton = QtGui.QPushButton("Re-Scan Serial Ports")
+		self.connectButton = QtGui.QPushButton("Connect")
+		self.connectButton.clicked.connect(lambda: self.init_SerialWorker())
+		self.reScanButton.clicked.connect(self.scan)
+
+		self.COMselector = QtGui.QComboBox(self)
+		self.scan() # Populate COM selector
 
 		self.updateScoreboard = QtGui.QPushButton("Update")
 		self.updateScoreboard.clicked.connect(self.sendCommandToBrowser)
@@ -91,16 +95,16 @@ class Window(QtGui.QWidget):
 		self.tickerTeamSelector.currentIndexChanged.connect(self.populatePlayersSelector)
 		self.initializeStatisticsSelectors() # Populate self.tickerTeamSelector and self.onAirStatsComboBoxes
 
+		grid.addWidget(self.createSerialConfigurationGroup(), 0, 0, 2, 1) # MUST BE HERE, initializes all QObject lists
 		grid.addWidget(self.createTeamNameGroup(), 2, 0, 2, 1) # MUST BE HERE, initializes all QObject lists
 		grid.addWidget(self.createTickerGraphicGroup(), 4, 0, 2, 1) # MUST BE HERE, initializes all QObject lists
 		grid.addWidget(self.createStatSelectorGroup(), 6, 0, 2, 1) # MUST BE HERE, initializes all QObject lists
 		grid.addWidget(self.updateScoreboard, 8, 0, 1, 1) # MUST BE HERE, initializes all QObject lists
-		
 		self.init_WebSocketsWorker() # Start ws:// server at port 9000
-		self.init_OCRWorker() # Start OpenCV, open webcam
 
 		grid.setHorizontalSpacing(10)
 		grid.setVerticalSpacing(10)
+
 		self.setLayout(grid)
 
 	def sendCommandToBrowser(self):
@@ -195,16 +199,55 @@ class Window(QtGui.QWidget):
 
 		file_object.close()
 
+	def scan(self): #scan for available ports. return a list of tuples (num, name)
+		available = []
+
+		ports = glob.glob('/dev/tty.*')
+
+		for index, port in enumerate(ports):
+		        try:
+		            s = serial.Serial(port)
+		            s.close()
+		            available.append((index, port))
+		        except (OSError, serial.SerialException):
+		            pass
+
+		self.COMselector.clear()
+		for n,s in available:
+			self.COMselector.addItem(s, n)
+
 	def init_WebSocketsWorker(self):
 		self.webSocketsWorker = WebSocketsWorker()
 		self.webSocketsWorker.error.connect(self.close)
 		self.webSocketsWorker.start()
 
-	def init_OCRWorker(self):
-		self.OCRWorker = OCRWorker()
-		self.OCRWorker.error.connect(self.close)
-		self.OCRWorker.start()
+	def init_SerialWorker(self):
+		self.serialWorker = SerialWorker(self.COMselector.currentText(), "9600")
+		self.serialWorker.error.connect(lambda: QtGui.QMessageBox.critical(self, "Serial Error", str("Serial connection error."), QtGui.QMessageBox.Abort))
+		self.serialWorker.to_browser.connect(self.rx_to_browser)
+		self.serialWorker.start()
 		
+	def rx_to_browser(self, data): # Send data to browser. Serial thread -> to_browser QSignal -> rx_to_browser()
+		self.webSocketsWorker.send(data);
+
+	def createSerialConfigurationGroup(self):
+		groupBox = QtGui.QGroupBox("Serial Configuration")
+		groupBox.setStyleSheet(GroupBoxStyleSheet)
+
+		self.COMlabel = QtGui.QLabel("COM Port", self)
+		self.COMlabel.setAlignment(QtCore.Qt.AlignRight)
+
+		grid = QtGui.QGridLayout()
+		grid.setHorizontalSpacing(10)
+		grid.setVerticalSpacing(10)
+		grid.addWidget(self.COMlabel, 0, 1)
+		grid.addWidget(self.COMselector, 0, 2)
+		grid.addWidget(self.reScanButton, 3, 2)
+		grid.addWidget(self.connectButton, 4, 2)
+
+		groupBox.setLayout(grid)
+		return groupBox
+
 	def createTickerGraphicGroup(self):
 		groupBox = QtGui.QGroupBox("Ticker")
 		groupBox.setStyleSheet(GroupBoxStyleSheet)
@@ -348,82 +391,142 @@ class WebSocketsWorker(QtCore.QThread):
 		reactor.callFromThread(self.factory.broadcast, data)
 		self.updateProgress.emit([self.factory.returnClients()])
 
+class SerialWorker(QtCore.QThread):
+	success = QtCore.Signal(int)
+	to_browser = QtCore.Signal(str)
+	error = QtCore.Signal(str)
 
-
-class OCRWorker(QtCore.QThread):
-	error = QtCore.Signal(int)
-
-	def __init__(self):
+	def __init__(self, port_num, port_baud, port_stopbits = serial.STOPBITS_ONE, port_parity = serial.PARITY_NONE):
 		QtCore.QThread.__init__(self)
 
-		self._CACHE_IMAGE_FILENAME = 'filename.jpg'
-		self._SSOCR_PATH = os.path.abspath(os.path.dirname(__file__)) + '/ssocr'
-		self._CACHE_IMAGE_PATH = os.path.abspath(os.path.dirname(__file__)) + '/' + self._CACHE_IMAGE_FILENAME
-		self.mouse_coordinates = [0, 0]
+		self.serial_port = None
+		self.serial_arg  = dict(port = port_num, baudrate = port_baud, stopbits = port_stopbits, parity = port_parity, timeout  = None)
+		self.score_digits = [63, 6, 91, 79, 102, 109, 125, 7, 127, 103]
+		self.score_digits_100s = [191, 134, 219, 207, 230, 237, 253, 135, 255, 231] # Indexes for >99 score
 
-		self.cam = None # VideoCapture object, created in run()
-
-	def mouse_hover_coordinates(self, event, x, y, flags, param):
-		#global self.mouse_coordinates
-
-		if event == EVENT_MOUSEMOVE:
-			self.mouse_coordinates = [x, y]
 
 	def run(self):
-		print "OCRWorker QThread successfully opened."
-		print "ssocr path: " + self._SSOCR_PATH
-		print "Cache image path: " + self._CACHE_IMAGE_PATH
+		try: 
+			self.serial_port = serial.Serial(**self.serial_arg) # Open serial port with given arguments
+			self.success.emit(True)
+			print "Successfully connected to COM port."
+		except serial.SerialException, e:
+			self.error.emit(True)
+			print e.message
+			return
 
-		try:
-			self.cam = VideoCapture(0)   # 0 -> index of camera
-			print self.cam.get(cv.CV_CAP_PROP_FRAME_WIDTH), self.cam.get(cv.CV_CAP_PROP_FRAME_HEIGHT)
+		while True:
+			try:
+				line = self.serial_port.readline() # Emit error if cannot read from device anymore; means disconnection
+				line = str(line.rstrip('\r\n')) # Remove newline, ensure string data type
+			except: 
+				self.error.emit(True)
 
-			self.cam.set(cv.CV_CAP_PROP_FRAME_WIDTH, 640)
-			self.cam.set(cv.CV_CAP_PROP_FRAME_HEIGHT, 360)
+			if len(line):
+				print len(line), line
+				
+			if (len(line) == 30) or (len(line) == 25):
+				#print line
+				ascii_to_int = [""] * 100 # Holds ord() of all incoming bytes
+				for x, char in enumerate(line):
+					ascii_to_int[x] = ord(char)
 
-			namedWindow("image", CV_WINDOW_AUTOSIZE)
-			setMouseCallback("image", self.mouse_hover_coordinates)
+				msg_game = {
+					"clock": self.returnGameTime(ascii_to_int[8], ascii_to_int[9], ascii_to_int[10], ascii_to_int[11]),
+					"shot_clock": self.returnShotClock(ascii_to_int[23]),
+					"quarter": self.returnQuarter(ascii_to_int[14], ascii_to_int[15]),
+					"possesion": self.returnPosession(ascii_to_int[16])
+				}
+				msg_guest = {
+					"score": self.returnTeamScore(ascii_to_int[5], ascii_to_int[4]),
+					"fouls": self.returnFouls(ascii_to_int[20])
+				}
+				msg_home = {
+					"score": self.returnTeamScore(ascii_to_int[7], ascii_to_int[6]),
+					"fouls": self.returnFouls(ascii_to_int[21])
+				}
 
-			while True:
-				#img = imread('flintridge_test.jpg')
-				#success = True
+				packet = {
+					"game": msg_game,
+					"guest": msg_guest,
+					"home": msg_home
+				}
 
-				success, img = self.cam.read()
+			#	self.to_browser.emit(packet)
+				self.to_browser.emit(json.dumps(packet))
 
-				if success: # frame captured without any errors
-					rectangle(img, (0, 0), (90, 35), (0,0,0), -1)
-					putText(img, "X = "+ str(self.mouse_coordinates[0]), (10, 15), FONT_ITALIC, 0.5, (255,255,255))
-					putText(img, "Y = "+ str(self.mouse_coordinates[1]), (10, 30), FONT_ITALIC, 0.5, (255,255,255))
-
-					imshow("image", img)
-					imwrite(self._CACHE_IMAGE_FILENAME, img) 
-					waitKey(100)
-
-					_command = self._SSOCR_PATH + ' grayscale r_threshold invert remove_isolated crop 202 80 95 43 ' + self._CACHE_IMAGE_PATH + ' -D -d -1'
-					proc = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
-					tmp = proc.stdout.read()
-
-					#testbild = imread('testbild.png') # Show processed debug image by ssocr
-					#imshow("image", testbild)
-
-			 		print "CPU %: " + str(psutil.cpu_percent())
-			 		print tmp
-
-
-
-		except:
-			self.error.emit(1)
-
-
-
-
-
-
+				print "GAME TIME: " + self.returnGameTime(ascii_to_int[8], ascii_to_int[9], ascii_to_int[10], ascii_to_int[11])
+				print "SHOT CLOCK: " + self.returnShotClock(ascii_to_int[23])
+				print "QUARTER: " + self.returnQuarter(ascii_to_int[14], ascii_to_int[15])
+				print "POSESSION: " + self.returnPosession(ascii_to_int[16])
+				print ""
+				print "GUEST: " + self.returnTeamScore(ascii_to_int[5], ascii_to_int[4])
+				print "GUEST FOULS: " + self.returnFouls(ascii_to_int[20])
+				print ""
+				print "HOME: " + self.returnTeamScore(ascii_to_int[7], ascii_to_int[6])
+				print "HOME FOULS: " + self.returnFouls(ascii_to_int[21])
+				print ""
+				print "\n\n\n\n\n\n\n\n\n\n\n"
 
 
+
+	def returnTeamScore(self, ord1, ord2):
+		digit1, digit2, hundreds = "", "", ""
+		try: digit1 = str(self.score_digits.index(ord1))
+		except: pass
+		try: digit2 = str(self.score_digits.index(ord2))
+		except: pass
+
+		try: # Do 100s anyway as it will escape out if its <99. <99 will pass both these statements
+			digit1 = str(self.score_digits_100s.index(ord1))
+			hundreds = "1" 
+		except: pass
+		try: digit2 = str(self.score_digits_100s.index(ord2))
+		except: pass
+
+		return hundreds + digit1 + digit2
+
+	def returnFouls(self, ord1):
+		return str(int(ord1) - 48) # Fouls are direct, if ASCII byte = 0 then fouls = 0
+
+	def returnQuarter(self, ord1, ord2):
+		return str(int(ord1) + int(ord2) - 48 - 48) # ord1 + ord2 is the current quarter
+
+	def returnPosession(self, ord1):
+		if(ord1 == 50): return "HOME"
+		if(ord1 == 52): return "GUEST"
+		return ""
+
+	def returnGameTime(self, seconds_ord, deciseconds_ord, minutes_ord, deciminutes_ord):
+		seconds, deciseconds, minutes, deciminutes, colon = "", "", "", "", ":"
+		try: seconds = str(self.score_digits.index(seconds_ord))
+		except: pass
+		try: deciseconds = str(self.score_digits_100s.index(deciseconds_ord))
+		except: pass
+		try: 
+			deciseconds = str(self.score_digits.index(deciseconds_ord))
+			colon = '.'
+		except: pass
+		try: minutes = str(self.score_digits_100s.index(minutes_ord))
+		except: pass
+		try: deciminutes = str(self.score_digits.index(deciminutes_ord))
+		except: pass
+
+		return deciminutes + minutes + colon + deciseconds + seconds
+
+
+	def returnShotClock(self, seconds_ord):
+		return str(seconds_ord)
+
+
+	def port_write(self, command):
+		self.serial_port.write(command.encode())
+
+	def port_close(self):
+		self.serial_port.close()
 
 
 if __name__ == '__main__':
 	app = QtGui.QApplication(sys.argv)
-	ex = MainWindow()
+	ex = Example()
 	sys.exit(app.exec_())

@@ -38,10 +38,10 @@ namedWindow("image", CV_WINDOW_AUTOSIZE)
 setMouseCallback("image", mouse_hover_coordinates)
 
 while True:
-	img = imread('flintridge_test.jpg')
-	success = True
+	#img = imread('flintridge_test.jpg')
+	#success = True
 
-	#success, img = cam.read()
+	success, img = cam.read()
 
 	if success: # frame captured without any errors
 		rectangle(img, (0, 0), (90, 35), (0,0,0), -1)
@@ -58,9 +58,6 @@ while True:
 
 		#testbild = imread('testbild.png') # Show processed debug image by ssocr
 		#imshow("image", testbild)
-
-
-
 
  		print "CPU %: " + str(psutil.cpu_percent())
  		print tmp
