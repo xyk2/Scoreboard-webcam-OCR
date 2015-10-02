@@ -88,6 +88,18 @@ class Window(QtGui.QWidget):
 		self.tickerPlayerSelector = QtGui.QComboBox(self)
 		self.selectedPlayerMetadata = ''
 
+
+		self.OCRcoordinates = {
+			"clock": [QtGui.QLabel("Clock"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0")],
+			"shot_clock": [QtGui.QLabel("Shot Clock"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0")],
+			"quarter": [QtGui.QLabel("Quarter"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0")],
+			"home_score": [QtGui.QLabel("Home Score"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0")],
+			"home_fouls": [QtGui.QLabel("Home Fouls"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0")],
+			"away_score": [QtGui.QLabel("Away Score"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0")],
+			"away_fouls": [QtGui.QLabel("Away Fouls"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0")]
+		}
+
+
 		self.onAirStatsComboBoxes = [QtGui.QComboBox(self), QtGui.QComboBox(self), QtGui.QComboBox(self), QtGui.QComboBox(self), QtGui.QComboBox(self)]
 		self.tickerTeamSelector.currentIndexChanged.connect(self.populatePlayersSelector)
 		self.initializeStatisticsSelectors() # Populate self.tickerTeamSelector and self.onAirStatsComboBoxes
@@ -95,11 +107,15 @@ class Window(QtGui.QWidget):
 		grid.addWidget(self.createTeamNameGroup(), 0, 0, 2, 1) # MUST BE HERE, initializes all QObject lists
 		grid.addWidget(self.createTickerGraphicGroup(), 2, 0, 2, 1) # MUST BE HERE, initializes all QObject lists
 		grid.addWidget(self.createStatSelectorGroup(), 4, 0, 2, 1) # MUST BE HERE, initializes all QObject lists
-		grid.addWidget(self.createOCRGroup(), 0, 1, 6, 1) # MUST BE HERE, initializes all QObject lists
+		grid.addWidget(self.createOCRGroup(), 0, 1, 4, 1) # MUST BE HERE, initializes all QObject lists
 		grid.addWidget(self.updateScoreboard, 6, 0, 1, 1) # MUST BE HERE, initializes all QObject lists
 		
 		self.init_WebSocketsWorker() # Start ws:// server at port 9000
 		#self.init_OCRWorker() # Start OpenCV, open webcam
+
+		grid.setColumnStretch(0,5)
+		grid.setColumnStretch(1,100)
+
 
 		grid.setHorizontalSpacing(10)
 		grid.setVerticalSpacing(10)
@@ -269,24 +285,90 @@ class Window(QtGui.QWidget):
 		groupBox.setLayout(grid)
 		return groupBox
 
+
+	def widthHeightAutoFiller(self):
+		for key, value in self.OCRcoordinates.iteritems():
+			tl_X = int('0' + value[1].text()) # '0' to avoid int('') empty string error
+			tl_Y = int('0' + value[2].text())
+			br_X = int('0' + value[3].text())
+			br_Y = int('0' + value[4].text())
+			value[5].setText(str(br_X - tl_X))
+			value[6].setText(str(br_Y - tl_Y))
+
+
 	def createOCRGroup(self):
-		groupBox = QtGui.QGroupBox("Scoreboard OCR")
+		groupBox = QtGui.QGroupBox("OCR Coordinates")
 		groupBox.setStyleSheet(GroupBoxStyleSheet)
-
-		# Select webcam dropdown
-		# Start OCR, Stop OCR
-		# XY values for each digit (Top Left, Bottom Right)
-		# Text box for ssocr command line arguments
-		# CPU usage %, write bytes
-
-
 
 		grid = QtGui.QGridLayout()
 		grid.setHorizontalSpacing(10)
-		grid.setVerticalSpacing(10)
+		grid.setVerticalSpacing(5)
 
-		grid.setColumnStretch(0,5)
-		grid.setColumnStretch(1,100)
+
+		# Select webcam dropdown
+		# Start OCR, Stop OCR
+		# Text box for ssocr command line arguments
+		# CPU usage %, write bytes
+
+		_tlLabel = QtGui.QLabel("Top-Left")
+		_brLabel = QtGui.QLabel("Bottom-Right")
+		_tlLabel.setAlignment(Qt.AlignCenter)
+		_brLabel.setAlignment(Qt.AlignCenter)
+		grid.addWidget(_tlLabel, 0, 1, 1, 2)
+		grid.addWidget(_brLabel, 0, 3, 1, 2)
+
+		grid.addWidget(QtGui.QLabel(""), 1, 0)
+		grid.addWidget(QtGui.QLabel("X"), 1, 1)
+		grid.addWidget(QtGui.QLabel("Y"), 1, 2)
+		grid.addWidget(QtGui.QLabel("X"), 1, 3)
+		grid.addWidget(QtGui.QLabel("Y"), 1, 4)
+		grid.addWidget(QtGui.QLabel("Width"), 1, 5)
+		grid.addWidget(QtGui.QLabel("Height"), 1,6)
+
+		for key, param in self.OCRcoordinates.iteritems(): # Right justify parameter QLabels
+			param[0].setAlignment(Qt.AlignRight)
+			param[1].setValidator(QIntValidator()) # Require integer pixel input
+			param[2].setValidator(QIntValidator())
+			param[3].setValidator(QIntValidator())
+			param[4].setValidator(QIntValidator())
+			param[1].setMaxLength(3) # Set 3 digit maximum for pixel coordinates
+			param[2].setMaxLength(3)
+			param[3].setMaxLength(3)
+			param[4].setMaxLength(3)
+			param[1].editingFinished.connect(self.widthHeightAutoFiller) # On change in X or Y, update width + height
+			param[2].editingFinished.connect(self.widthHeightAutoFiller)
+			param[3].editingFinished.connect(self.widthHeightAutoFiller)
+			param[4].editingFinished.connect(self.widthHeightAutoFiller)
+			param[5].setAlignment(Qt.AlignCenter)
+			param[6].setAlignment(Qt.AlignCenter)
+
+
+
+		for index, qobj in enumerate(self.OCRcoordinates["clock"]):
+			grid.addWidget(qobj, 2, index)
+
+		for index, qobj in enumerate(self.OCRcoordinates["shot_clock"]):
+			grid.addWidget(qobj, 3, index)
+
+		for index, qobj in enumerate(self.OCRcoordinates["quarter"]):
+			grid.addWidget(qobj, 4, index)
+
+		for index, qobj in enumerate(self.OCRcoordinates["home_score"]):
+			grid.addWidget(qobj, 5, index)
+		for index, qobj in enumerate(self.OCRcoordinates["home_fouls"]):
+			grid.addWidget(qobj, 6, index)
+
+		for index, qobj in enumerate(self.OCRcoordinates["away_score"]):
+			grid.addWidget(qobj, 7, index)
+		for index, qobj in enumerate(self.OCRcoordinates["away_fouls"]):
+			grid.addWidget(qobj, 8, index)
+
+
+		grid.setColumnMinimumWidth(1, 30)
+		grid.setColumnMinimumWidth(2, 30)
+		grid.setColumnMinimumWidth(3, 30)
+		grid.setColumnMinimumWidth(4, 30)
+
 		groupBox.setLayout(grid)
 		return groupBox
 
@@ -419,7 +501,7 @@ class OCRWorker(QtCore.QThread):
 
 					imshow("image", img)
 					imwrite(self._CACHE_IMAGE_FILENAME, img) 
-					waitKey(100)
+					waitKey(30)
 
 					_command = self._SSOCR_PATH + ' grayscale r_threshold invert remove_isolated crop 202 80 95 43 ' + self._CACHE_IMAGE_PATH + ' -D -d -1'
 					proc = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
