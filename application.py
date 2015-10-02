@@ -98,7 +98,11 @@ class Window(QtGui.QWidget):
 			"away_score": [QtGui.QLabel("Away Score"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0")],
 			"away_fouls": [QtGui.QLabel("Away Fouls"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0")]
 		}
-
+		self.ssocrArguments = QtGui.QLineEdit(u"")
+		self.startOCRButton = QtGui.QPushButton("Start OCR")
+		self.startOCRButton.clicked.connect(self.init_OCRWorker)
+		self.terminateOCRButton = QtGui.QPushButton("Stop OCR")
+		self.terminateOCRButton.clicked.connect(self.terminate_OCRWorker)
 
 		self.onAirStatsComboBoxes = [QtGui.QComboBox(self), QtGui.QComboBox(self), QtGui.QComboBox(self), QtGui.QComboBox(self), QtGui.QComboBox(self)]
 		self.tickerTeamSelector.currentIndexChanged.connect(self.populatePlayersSelector)
@@ -108,6 +112,8 @@ class Window(QtGui.QWidget):
 		grid.addWidget(self.createTickerGraphicGroup(), 2, 0, 2, 1) # MUST BE HERE, initializes all QObject lists
 		grid.addWidget(self.createStatSelectorGroup(), 4, 0, 2, 1) # MUST BE HERE, initializes all QObject lists
 		grid.addWidget(self.createOCRGroup(), 0, 1, 4, 1) # MUST BE HERE, initializes all QObject lists
+		grid.addWidget(self.createSSOCRGroup(), 4, 1, 1, 1) # MUST BE HERE, initializes all QObject lists
+		grid.addWidget(self.createOCRButtonGroup(), 5, 1, 1, 1) # MUST BE HERE, initializes all QObject lists
 		grid.addWidget(self.updateScoreboard, 6, 0, 1, 1) # MUST BE HERE, initializes all QObject lists
 		
 		self.init_WebSocketsWorker() # Start ws:// server at port 9000
@@ -222,6 +228,10 @@ class Window(QtGui.QWidget):
 		self.OCRWorker = OCRWorker()
 		self.OCRWorker.error.connect(self.close)
 		self.OCRWorker.start()
+
+	def terminate_OCRWorker(self):
+		self.OCRWorker.terminate()
+		del(self.OCRWorker)
 		
 	def createTickerGraphicGroup(self):
 		groupBox = QtGui.QGroupBox("Ticker")
@@ -285,7 +295,6 @@ class Window(QtGui.QWidget):
 		groupBox.setLayout(grid)
 		return groupBox
 
-
 	def widthHeightAutoFiller(self):
 		for key, value in self.OCRcoordinates.iteritems():
 			tl_X = int('0' + value[1].text()) # '0' to avoid int('') empty string error
@@ -294,7 +303,6 @@ class Window(QtGui.QWidget):
 			br_Y = int('0' + value[4].text())
 			value[5].setText(str(br_X - tl_X))
 			value[6].setText(str(br_Y - tl_Y))
-
 
 	def createOCRGroup(self):
 		groupBox = QtGui.QGroupBox("OCR Coordinates")
@@ -371,6 +379,34 @@ class Window(QtGui.QWidget):
 
 		groupBox.setLayout(grid)
 		return groupBox
+
+	def createSSOCRGroup(self):
+		groupBox = QtGui.QGroupBox("SSOCR Arguments")
+		groupBox.setStyleSheet(GroupBoxStyleSheet)
+
+		grid = QtGui.QGridLayout()
+		grid.setHorizontalSpacing(10)
+		grid.setVerticalSpacing(5)
+
+		grid.addWidget(self.ssocrArguments, 0, 0)
+
+		groupBox.setLayout(grid)
+		return groupBox
+
+	def createOCRButtonGroup(self):
+		groupBox = QtGui.QGroupBox("Start / Stop")
+		groupBox.setStyleSheet(GroupBoxStyleSheet)
+
+		grid = QtGui.QGridLayout()
+		grid.setHorizontalSpacing(10)
+		grid.setVerticalSpacing(5)
+
+		grid.addWidget(self.startOCRButton, 0, 0)
+		grid.addWidget(self.terminateOCRButton, 0, 1)
+
+		groupBox.setLayout(grid)
+		return groupBox
+
 
 
 
@@ -489,10 +525,10 @@ class OCRWorker(QtCore.QThread):
 			setMouseCallback("image", self.mouse_hover_coordinates)
 
 			while True:
-				#img = imread('flintridge_test.jpg')
-				#success = True
+				img = imread('flintridge_test.jpg')
+				success = True
 
-				success, img = self.cam.read()
+				#success, img = self.cam.read()
 
 				if success: # frame captured without any errors
 					rectangle(img, (0, 0), (90, 35), (0,0,0), -1)
@@ -501,7 +537,7 @@ class OCRWorker(QtCore.QThread):
 
 					imshow("image", img)
 					imwrite(self._CACHE_IMAGE_FILENAME, img) 
-					waitKey(30)
+					waitKey(100)
 
 					_command = self._SSOCR_PATH + ' grayscale r_threshold invert remove_isolated crop 202 80 95 43 ' + self._CACHE_IMAGE_PATH + ' -D -d -1'
 					proc = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
@@ -512,8 +548,6 @@ class OCRWorker(QtCore.QThread):
 
 			 		print "CPU %: " + str(psutil.cpu_percent())
 			 		print tmp
-
-
 
 		except:
 			self.error.emit(1)
