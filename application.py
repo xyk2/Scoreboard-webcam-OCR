@@ -229,6 +229,9 @@ class Window(QtGui.QWidget):
 		self.OCRWorker.error.connect(self.close)
 		self.OCRWorker.start()
 
+	def returnOCRCoordinatesList(self): # Returns 1:1 copy of self.OCRcoordinates without QObjects
+		return
+
 	def terminate_OCRWorker(self):
 		self.OCRWorker.terminate()
 		del(self.OCRWorker)
@@ -525,7 +528,7 @@ class OCRWorker(QtCore.QThread):
 			setMouseCallback("image", self.mouse_hover_coordinates)
 
 			while True:
-				img = imread('flintridge_test.jpg')
+				img = imread('tpe_gym_test.jpg')
 				success = True
 
 				#success, img = self.cam.read()
@@ -539,7 +542,8 @@ class OCRWorker(QtCore.QThread):
 					imwrite(self._CACHE_IMAGE_FILENAME, img) 
 					waitKey(100)
 
-					_command = self._SSOCR_PATH + ' grayscale r_threshold invert remove_isolated crop 202 80 95 43 ' + self._CACHE_IMAGE_PATH + ' -D -d -1'
+					#_command = self._SSOCR_PATH + ' gray_stretch 190 254 invert remove_isolated crop 190 20 265 95 ' + self._CACHE_IMAGE_PATH + ' -D -d -1'
+					_command = self._SSOCR_PATH + ' gray_stretch 190 254 invert remove_isolated crop 307 150 55 73 ' + self._CACHE_IMAGE_PATH + ' -D -d -1'
 					proc = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
 					tmp = proc.stdout.read()
 
@@ -551,10 +555,6 @@ class OCRWorker(QtCore.QThread):
 
 		except:
 			self.error.emit(1)
-
-
-
-
 
 
 

@@ -1,3 +1,4 @@
+import numpy
 from cv2 import *
 import time
 import psutil
@@ -27,12 +28,11 @@ def mouse_hover_coordinates(event, x, y, flags, param):
 
 
 # initialize the camera
-cam = VideoCapture(0)   # 0 -> index of camera
+cam = VideoCapture(1)   # 0 -> index of camera
 
 print cam.get(cv.CV_CAP_PROP_FRAME_WIDTH), cam.get(cv.CV_CAP_PROP_FRAME_HEIGHT)
 
-cam.set(cv.CV_CAP_PROP_FRAME_WIDTH, 640)
-cam.set(cv.CV_CAP_PROP_FRAME_HEIGHT, 360)
+
 
 namedWindow("image", CV_WINDOW_AUTOSIZE)
 setMouseCallback("image", mouse_hover_coordinates)
@@ -53,13 +53,13 @@ while True:
 		waitKey(100)
 
 		_command = SSOCR_PATH + ' grayscale r_threshold invert remove_isolated crop 202 80 95 43 ' + CACHE_IMAGE_PATH + ' -D -d -1'
-		proc = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
-		tmp = proc.stdout.read()
+		#proc = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
+		#tmp = proc.stdout.read()
 
 		#testbild = imread('testbild.png') # Show processed debug image by ssocr
 		#imshow("image", testbild)
 
- 		print "CPU %: " + str(psutil.cpu_percent())
- 		print tmp
+ 		#print "CPU %: " + str(psutil.cpu_percent())
+ 		#print tmp
 
 
