@@ -28,14 +28,14 @@ import re # Integers only from ssocr output
 
 
 if getattr(sys, 'frozen', False):
-    application_path = os.path.dirname(sys.executable)
+    _applicationPath = os.path.dirname(sys.executable)
 elif __file__:
-    application_path = os.path.dirname(__file__)
+    _applicationPath = os.path.dirname(__file__)
 
-_settingsFilePath = os.path.join(application_path, 'settings.ini')
-_athleteDataFilePath = os.path.join(application_path, 'athlete_data.csv')
-_ssocrFilePath = os.path.join(application_path, 'ssocr')
-_cacheImageFilePath = os.path.join(application_path, 'filename.jpg')
+_settingsFilePath = os.path.join(_applicationPath, 'settings.ini')
+_athleteDataFilePath = os.path.join(_applicationPath, 'athlete_data.csv')
+_ssocrFilePath = os.path.join(_applicationPath, 'ssocr')
+_cacheImageFilePath = os.path.join(_applicationPath, 'filename.jpg')
 
 GroupBoxStyleSheet = u"QGroupBox { border: 1px solid #AAAAAA;margin-top: 12px;} QGroupBox::title {top: -5px;left: 10px;}"
 
@@ -86,10 +86,12 @@ class Window(QtGui.QWidget):
 
 		self.teamAImagePath = QtGui.QLineEdit(u"")
 		self.teamAColor = QtGui.QLineEdit(u"")
-		self.teamASelector = QtGui.QComboBox(self)
+		self.teamAName = QtGui.QLineEdit(u"")
+		#self.teamASelector = QtGui.QComboBox(self)
 		self.teamBImagePath = QtGui.QLineEdit(u"")
+		self.teamBName = QtGui.QLineEdit(u"")
 		self.teamBColor = QtGui.QLineEdit(u"")
-		self.teamBSelector = QtGui.QComboBox(self)
+		#self.teamBSelector = QtGui.QComboBox(self)
 
 		self.tickerRadioGroup = QtGui.QButtonGroup()
 		self.tickerTextRadio = QtGui.QRadioButton("Text")
@@ -118,6 +120,7 @@ class Window(QtGui.QWidget):
 		self.onAirStatsComboBoxes = [QtGui.QComboBox(self), QtGui.QComboBox(self), QtGui.QComboBox(self), QtGui.QComboBox(self), QtGui.QComboBox(self)]
 		self.tickerTeamSelector.currentIndexChanged.connect(self.populatePlayersSelector)
 		self.initializeStatisticsSelectors() # Populate self.tickerTeamSelector and self.onAirStatsComboBoxes
+		self.initializeOCRCoordinatesList()
 
 		grid.addWidget(self.createTeamNameGroup(), 0, 0, 2, 1) # MUST BE HERE, initializes all QObject lists
 		grid.addWidget(self.createTickerGraphicGroup(), 2, 0, 2, 1) # MUST BE HERE, initializes all QObject lists
@@ -138,6 +141,13 @@ class Window(QtGui.QWidget):
 		grid.setVerticalSpacing(10)
 		self.setLayout(grid)
 
+	def initializeOCRCoordinatesList(self):
+		loadedOCRCoordinates = self.qsettings.value("OCRcoordinates")
+
+		for key, param in self.OCRcoordinates.iteritems():
+			for index, qobj in enumerate(param):
+				qobj.setText(loadedOCRCoordinates[key][index])
+
 	def sendCommandToBrowser(self):
 		msg = {
 			'ticker': '',
@@ -151,10 +161,12 @@ class Window(QtGui.QWidget):
 			}
 		}
 
-		msg['guest']['name'] = self.teamASelector.currentText()
+		#msg['guest']['name'] = self.teamASelector.currentText()
+		msg['guest']['name'] = self.teamAName.text()
 		msg['guest']['imagePath'] = self.teamAImagePath.text()
 		msg['guest']['color'] = self.teamAColor.text()
-		msg['home']['name'] = self.teamBSelector.currentText()
+		#msg['home']['name'] = self.teamBSelector.currentText()
+		msg['home']['name'] = self.teamBName.text()
 		msg['home']['imagePath'] = self.teamBImagePath.text()
 		msg['home']['color'] = self.teamBColor.text()
 
@@ -163,7 +175,7 @@ class Window(QtGui.QWidget):
 			msg["ticker"] = self.tickerTextLineEdit.text()
 
 		if self.tickerRadioGroup.checkedId() == 1: # Player stats selected
-			file_object = open(os.path.abspath(os.path.dirname(__file__)) + '/athlete_data.csv', 'rU')
+			file_object = open('athlete_data.csv', 'rU')
 			reader = unicodecsv.reader(file_object , delimiter=',', dialect='excel')
 
 			statIndexes = []
@@ -190,6 +202,30 @@ class Window(QtGui.QWidget):
 
 		self.webSocketsWorker.send(json.dumps(msg));
 
+	def sendRealTimeCommandToBrowser(self, recognizedDigits):
+		msg_game = {
+			"clock": recognizedDigits['clock'],
+			"shot_clock": '',
+			"quarter": recognizedDigits['quarter'],
+			"possesion": ''
+		}
+		msg_guest = {
+			"score": recognizedDigits['away_score'],
+			"fouls": recognizedDigits['away_fouls']
+		}
+		msg_home = {
+			"score": recognizedDigits['home_score'],
+			"fouls": recognizedDigits['home_fouls']
+		}
+
+		packet = {
+			"game": msg_game,
+			"guest": msg_guest,
+			"home": msg_home
+		}
+
+		self.webSocketsWorker.send(json.dumps(packet))
+
 	def initializeStatisticsSelectors(self):
 		file_object = open(_athleteDataFilePath, 'rU')
 		reader = unicodecsv.reader(file_object , delimiter=',', dialect='excel')
@@ -202,8 +238,8 @@ class Window(QtGui.QWidget):
 			except ValueError: # If error is raised, means its not in unique list
 				unique_teams.append(row[1])
 				self.tickerTeamSelector.addItem(row[1])
-				self.teamASelector.addItem(row[1])
-				self.teamBSelector.addItem(row[1])
+				#self.teamASelector.addItem(row[1])
+				#self.teamBSelector.addItem(row[1])
 
 		for x, comboBox in enumerate(self.onAirStatsComboBoxes):
 			self.onAirStatsComboBoxes[x].addItem("-")
@@ -233,12 +269,13 @@ class Window(QtGui.QWidget):
 	def init_WebSocketsWorker(self):
 		self.webSocketsWorker = WebSocketsWorker()
 		self.webSocketsWorker.error.connect(self.close)
-		self.webSocketsWorker.start()
+		self.webSocketsWorker.start()# Call to start WebSockets server
 
 	def init_OCRWorker(self):
 		self.OCRWorker = OCRWorker(self.returnOCRCoordinatesList(), self.ssocrArguments.text())
 		self.OCRWorker.error.connect(self.close)
-		self.OCRWorker.start()
+		self.OCRWorker.recognizedDigits.connect(self.sendRealTimeCommandToBrowser)
+		self.OCRWorker.start() # Call to start OCR openCV thread
 
 	def returnOCRCoordinatesList(self): # Returns 1:1 copy of self.OCRcoordinates without QObjects
 		response = {
@@ -255,7 +292,6 @@ class Window(QtGui.QWidget):
 				response[key][index] = qobj.text()
 
 		return response
-
 
 	def terminate_OCRWorker(self):
 		self.OCRWorker.terminate()
@@ -307,14 +343,17 @@ class Window(QtGui.QWidget):
 		grid.setHorizontalSpacing(10)
 		grid.setVerticalSpacing(5)
 
+		grid.addWidget(QtGui.QLabel("Name"), 0, 1)
 		grid.addWidget(QtGui.QLabel("Image URL"), 0, 2)
 		grid.addWidget(QtGui.QLabel("Color #Hex "), 0, 3)
-		grid.addWidget(QtGui.QLabel("Team A: "), 1, 0)
-		grid.addWidget(self.teamASelector, 1, 1)
+		grid.addWidget(QtGui.QLabel("Guest"), 1, 0)
+		#grid.addWidget(self.teamASelector, 1, 1)
+		grid.addWidget(self.teamAName, 1, 1)
 		grid.addWidget(self.teamAImagePath, 1, 2)
 		grid.addWidget(self.teamAColor, 1, 3)
-		grid.addWidget(QtGui.QLabel("Team B"), 2, 0)
-		grid.addWidget(self.teamBSelector, 2, 1)
+		grid.addWidget(QtGui.QLabel("Home"), 2, 0)
+		#grid.addWidget(self.teamBSelector, 2, 1)
+		grid.addWidget(self.teamBName, 2, 1)
 		grid.addWidget(self.teamBImagePath, 2, 2)
 		grid.addWidget(self.teamBColor, 2, 3)
 
@@ -323,7 +362,7 @@ class Window(QtGui.QWidget):
 		groupBox.setLayout(grid)
 		return groupBox
 
-	def widthHeightAutoFiller(self):
+	def widthHeightAutoFiller(self): # Calculates width and height, then saves to settings.ini file
 		for key, value in self.OCRcoordinates.iteritems():
 			tl_X = int('0' + value[1].text()) # '0' to avoid int('') empty string error
 			tl_Y = int('0' + value[2].text())
@@ -331,6 +370,8 @@ class Window(QtGui.QWidget):
 			br_Y = int('0' + value[4].text())
 			value[5].setText(str(br_X - tl_X))
 			value[6].setText(str(br_Y - tl_Y))
+
+		self.qsettings.setValue("OCRcoordinates", self.returnOCRCoordinatesList())
 
 	def createOCRGroup(self):
 		groupBox = QtGui.QGroupBox("OCR Coordinates")
@@ -504,7 +545,7 @@ class WebSocketsWorker(QtCore.QThread):
 			listenWS(self.factory)
 		except:
 			self.error.emit("Fail")
-		webdir = File(".")
+		webdir = File(_applicationPath)
 		webdir.indexNames = ['index.php', 'index.html']
 		web = Site(webdir)
 		try:
@@ -517,8 +558,6 @@ class WebSocketsWorker(QtCore.QThread):
 	def send(self, data):
 		reactor.callFromThread(self.factory.broadcast, data)
 		self.updateProgress.emit([self.factory.returnClients()])
-
-
 
 class OCRWorker(QtCore.QThread):
 	error = QtCore.Signal(int)
@@ -544,7 +583,9 @@ class OCRWorker(QtCore.QThread):
 		print "Cache image path: " + _cacheImageFilePath
 
 		try:
-			self.cam = VideoCapture(0)   # 0 -> index of camera
+			self.cam = VideoCapture(1)   # 0 -> index of camera
+			#self.cam = VideoCapture('test_video.mov')   # 0 -> index of camera
+			print "Webcam native resolution: ",
 			print self.cam.get(cv.CV_CAP_PROP_FRAME_WIDTH), self.cam.get(cv.CV_CAP_PROP_FRAME_HEIGHT)
 
 			self.cam.set(cv.CV_CAP_PROP_FRAME_WIDTH, 640)
@@ -554,10 +595,12 @@ class OCRWorker(QtCore.QThread):
 			setMouseCallback("OCR Webcam", self.mouse_hover_coordinates)
 
 			while True:
-				img = imread('tpe_gym_test.jpg')
-				success = True
+				#img = imread('tpe_gym_test.jpg')
+				#success = True
 
-				#success, img = self.cam.read()
+				success, img = self.cam.read()
+				#img = flip(img, 1)
+
 
 				if success:
 					rectangle(img, (0, 0), (90, 35), (0,0,0), -1)
@@ -595,25 +638,25 @@ class OCRWorker(QtCore.QThread):
 					away_score = procE.stdout.read()
 					away_fouls = procF.stdout.read()
 
+					digits = { "clock": clock, "quarter": quarter, "home_score": home_score, "home_fouls": home_fouls, "away_score": away_score, "away_fouls": away_fouls }
 
-					digits = {
-						"clock": clock,
-						"quarter": quarter,
-						"home_score": home_score,
-						"home_fouls": home_fouls,
-						"away_score": away_score,
-						"away_fouls": away_fouls
-					}
-
-					for key, value in digits.iteritems():
+					for key, value in digits.iteritems(): # Remove all non integer digits from ssocr output
 						digits[key] = re.sub("[^0-9]", "", value)
+
+
+					if(len(digits['clock']) == 5): # Clock filtering and validation
+						digits['clock'] = digits['clock'][:2] + ':' + digits['clock'][3:]
+					if(len(digits['clock']) == 4): 
+						digits['clock'] = digits['clock'][:1] + ':' + digits['clock'][2:]
 
 					for key, value in digits.iteritems():
 						print key, value
 
-
-
 			 		print "CPU %: " + str(psutil.cpu_percent())
+
+			 		self.recognizedDigits.emit(digits)
+
+
 
 		except:
 			self.error.emit(1)

@@ -4,9 +4,32 @@ a = Analysis(['application.py'],
              hiddenimports=[],
              hookspath=None,
              runtime_hooks=None)
+
+##### include mydir in distribution #######
+def extra_datas(mydir):
+    def rec_glob(p, files):
+        import os
+        import glob
+        for d in glob.glob(p):
+            if os.path.isfile(d):
+                files.append(d)
+            rec_glob("%s/*" % d, files)
+    files = []
+    rec_glob("%s/*" % mydir, files)
+    extra_datas = []
+    for f in files:
+        extra_datas.append((f, f, 'DATA'))
+
+    return extra_datas
+###########################################
+
+a.datas += extra_datas('static')
 a.datas += [('athlete_data.csv','athlete_data.csv','DATA')]
 a.datas += [('tpe_gym_test.jpg','tpe_gym_test.jpg','DATA')]
 a.datas += [('ssocr','ssocr','DATA')]
+a.datas += [('settings.ini','settings.ini','DATA')]
+a.datas += [('index.html','index.html','DATA')]
+
 pyz = PYZ(a.pure)
 exe = EXE(pyz,
           a.scripts,
