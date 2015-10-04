@@ -24,20 +24,18 @@ import numpy
 from cv2 import * # OpenCV imports
 import psutil # CPU usage
 import subprocess # ssocr command line calling
-import re
+import re # Integers only from ssocr output
 
-config_name = 'myapp.cfg'
 
-# determine if application is a script file or frozen exe
 if getattr(sys, 'frozen', False):
     application_path = os.path.dirname(sys.executable)
 elif __file__:
     application_path = os.path.dirname(__file__)
 
-config_path = os.path.join(application_path, config_name)
-
-print config_path
-
+_settingsFilePath = os.path.join(application_path, 'settings.ini')
+_athleteDataFilePath = os.path.join(application_path, 'athlete_data.csv')
+_ssocrFilePath = os.path.join(application_path, 'ssocr')
+_cacheImageFilePath = os.path.join(application_path, 'filename.jpg')
 
 GroupBoxStyleSheet = u"QGroupBox { border: 1px solid #AAAAAA;margin-top: 12px;} QGroupBox::title {top: -5px;left: 10px;}"
 
@@ -46,7 +44,7 @@ class MainWindow(QtGui.QMainWindow):
 		super(MainWindow, self).__init__(parent)
 
 		######## QSettings #########
-		self.qsettings = QSettings('settings.ini', QSettings.IniFormat)
+		self.qsettings = QSettings(_settingsFilePath, QSettings.IniFormat)
 		self.qsettings.setFallbacksEnabled(False)
 
 		######## ACTIONS ###########
@@ -79,7 +77,7 @@ class Window(QtGui.QWidget):
 	def __init__(self, parent):
 		super(Window, self).__init__(parent)
 		grid = QtGui.QGridLayout()
-		self.qsettings = QSettings('settings.ini', QSettings.IniFormat)
+		self.qsettings = QSettings(_settingsFilePath, QSettings.IniFormat)
 		self.qsettings.setFallbacksEnabled(False)
 
 
@@ -111,7 +109,7 @@ class Window(QtGui.QWidget):
 			"away_score": [QtGui.QLabel("Away Score"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0")],
 			"away_fouls": [QtGui.QLabel("Away Fouls"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0")]
 		}
-		self.ssocrArguments = QtGui.QLineEdit(u"")
+		self.ssocrArguments = QtGui.QLineEdit(u"gray_stretch 190 254 invert remove_isolated crop")
 		self.startOCRButton = QtGui.QPushButton("Start OCR")
 		self.startOCRButton.clicked.connect(self.init_OCRWorker)
 		self.terminateOCRButton = QtGui.QPushButton("Stop OCR")
@@ -193,7 +191,7 @@ class Window(QtGui.QWidget):
 		self.webSocketsWorker.send(json.dumps(msg));
 
 	def initializeStatisticsSelectors(self):
-		file_object = open('athlete_data.csv', 'rU')
+		file_object = open(_athleteDataFilePath, 'rU')
 		reader = unicodecsv.reader(file_object , delimiter=',', dialect='excel')
 		hrow = reader.next()
 
@@ -220,7 +218,7 @@ class Window(QtGui.QWidget):
 		file_object.close()
 
 	def populatePlayersSelector(self):
-		file_object = open('athlete_data.csv', 'rU')
+		file_object = open(_athleteDataFilePath, 'rU')
 		reader = unicodecsv.reader(file_object , delimiter=',', dialect='excel')
 		hrow = reader.next()
 
@@ -238,7 +236,7 @@ class Window(QtGui.QWidget):
 		self.webSocketsWorker.start()
 
 	def init_OCRWorker(self):
-		self.OCRWorker = OCRWorker(self.returnOCRCoordinatesList())
+		self.OCRWorker = OCRWorker(self.returnOCRCoordinatesList(), self.ssocrArguments.text())
 		self.OCRWorker.error.connect(self.close)
 		self.OCRWorker.start()
 
@@ -526,13 +524,12 @@ class OCRWorker(QtCore.QThread):
 	error = QtCore.Signal(int)
 	recognizedDigits = QtCore.Signal(dict)
 
-	def __init__(self, OCRCoordinatesList):
+	def __init__(self, OCRCoordinatesList, ssocrArguments):
 		QtCore.QThread.__init__(self)
 
+		self.ssocrArguments = ssocrArguments
 		self.OCRCoordinatesList = OCRCoordinatesList
-		self._CACHE_IMAGE_FILENAME = 'filename.jpg'
-		self._SSOCR_PATH = os.path.abspath(os.path.dirname(__file__)) + '/ssocr'
-		self._CACHE_IMAGE_PATH = os.path.abspath(os.path.dirname(__file__)) + '/' + self._CACHE_IMAGE_FILENAME
+
 		self.mouse_coordinates = [0, 0]
 
 		self.cam = None # VideoCapture object, created in run()
@@ -543,9 +540,8 @@ class OCRWorker(QtCore.QThread):
 
 	def run(self):
 		print "OCRWorker QThread successfully opened."
-		print "ssocr path: " + self._SSOCR_PATH
-		print "Cache image path: " + self._CACHE_IMAGE_PATH
-		print self.OCRCoordinatesList
+		print "ssocr path: " + _ssocrFilePath
+		print "Cache image path: " + _cacheImageFilePath
 
 		try:
 			self.cam = VideoCapture(0)   # 0 -> index of camera
@@ -554,8 +550,8 @@ class OCRWorker(QtCore.QThread):
 			self.cam.set(cv.CV_CAP_PROP_FRAME_WIDTH, 640)
 			self.cam.set(cv.CV_CAP_PROP_FRAME_HEIGHT, 360)
 
-			namedWindow("image", CV_WINDOW_AUTOSIZE)
-			setMouseCallback("image", self.mouse_hover_coordinates)
+			namedWindow("OCR Webcam", CV_WINDOW_AUTOSIZE)
+			setMouseCallback("OCR Webcam", self.mouse_hover_coordinates)
 
 			while True:
 				img = imread('tpe_gym_test.jpg')
@@ -563,7 +559,7 @@ class OCRWorker(QtCore.QThread):
 
 				#success, img = self.cam.read()
 
-				if success: # frame captured without any errors
+				if success:
 					rectangle(img, (0, 0), (90, 35), (0,0,0), -1)
 					putText(img, "X = "+ str(self.mouse_coordinates[0]), (10, 15), FONT_ITALIC, 0.5, (255,255,255))
 					putText(img, "Y = "+ str(self.mouse_coordinates[1]), (10, 30), FONT_ITALIC, 0.5, (255,255,255))
@@ -575,21 +571,21 @@ class OCRWorker(QtCore.QThread):
 					rectangle(img, (int('0' + self.OCRCoordinatesList["away_score"][1]), int('0' + self.OCRCoordinatesList["away_score"][2])), (int('0' + self.OCRCoordinatesList["away_score"][3]), int('0' + self.OCRCoordinatesList["away_score"][4])), (0,255,0), 1)
 					rectangle(img, (int('0' + self.OCRCoordinatesList["away_fouls"][1]), int('0' + self.OCRCoordinatesList["away_fouls"][2])), (int('0' + self.OCRCoordinatesList["away_fouls"][3]), int('0' + self.OCRCoordinatesList["away_fouls"][4])), (0,255,0), 1)
 
-					imshow("image", img)
-					imwrite(self._CACHE_IMAGE_FILENAME, img) 
+					imshow("OCR Webcam", img)
+					imwrite(_cacheImageFilePath, img) 
 					waitKey(100)
 
-					_command = self._SSOCR_PATH + ' gray_stretch 190 254 invert remove_isolated crop ' + self.OCRCoordinatesList["clock"][1] + ' ' + self.OCRCoordinatesList["clock"][2] + ' ' + self.OCRCoordinatesList["clock"][5] + ' ' + self.OCRCoordinatesList["clock"][6] + ' ' + self._CACHE_IMAGE_PATH + ' -D -d -1'
+					_command = _ssocrFilePath + ' ' + self.ssocrArguments + ' ' + self.OCRCoordinatesList["clock"][1] + ' ' + self.OCRCoordinatesList["clock"][2] + ' ' + self.OCRCoordinatesList["clock"][5] + ' ' + self.OCRCoordinatesList["clock"][6] + ' ' + _cacheImageFilePath + ' -D -d -1'
 					procA = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
-					_command = self._SSOCR_PATH + ' gray_stretch 190 254 invert remove_isolated crop ' + self.OCRCoordinatesList["quarter"][1] + ' ' + self.OCRCoordinatesList["quarter"][2] + ' ' + self.OCRCoordinatesList["quarter"][5] + ' ' + self.OCRCoordinatesList["quarter"][6] + ' ' + self._CACHE_IMAGE_PATH + ' -D -d -1'
+					_command = _ssocrFilePath + ' ' + self.ssocrArguments + ' ' + self.OCRCoordinatesList["quarter"][1] + ' ' + self.OCRCoordinatesList["quarter"][2] + ' ' + self.OCRCoordinatesList["quarter"][5] + ' ' + self.OCRCoordinatesList["quarter"][6] + ' ' + _cacheImageFilePath + ' -D -d -1'
 					procB = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
-					_command = self._SSOCR_PATH + ' gray_stretch 190 254 invert remove_isolated crop ' + self.OCRCoordinatesList["home_score"][1] + ' ' + self.OCRCoordinatesList["home_score"][2] + ' ' + self.OCRCoordinatesList["home_score"][5] + ' ' + self.OCRCoordinatesList["home_score"][6] + ' ' + self._CACHE_IMAGE_PATH + ' -D -d -1'
+					_command = _ssocrFilePath + ' ' + self.ssocrArguments + ' ' + self.OCRCoordinatesList["home_score"][1] + ' ' + self.OCRCoordinatesList["home_score"][2] + ' ' + self.OCRCoordinatesList["home_score"][5] + ' ' + self.OCRCoordinatesList["home_score"][6] + ' ' + _cacheImageFilePath + ' -D -d -1'
 					procC = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
-					_command = self._SSOCR_PATH + ' gray_stretch 190 254 invert remove_isolated crop ' + self.OCRCoordinatesList["home_fouls"][1] + ' ' + self.OCRCoordinatesList["home_fouls"][2] + ' ' + self.OCRCoordinatesList["home_fouls"][5] + ' ' + self.OCRCoordinatesList["home_fouls"][6] + ' ' + self._CACHE_IMAGE_PATH + ' -D -d -1'
+					_command = _ssocrFilePath + ' ' + self.ssocrArguments + ' ' + self.OCRCoordinatesList["home_fouls"][1] + ' ' + self.OCRCoordinatesList["home_fouls"][2] + ' ' + self.OCRCoordinatesList["home_fouls"][5] + ' ' + self.OCRCoordinatesList["home_fouls"][6] + ' ' + _cacheImageFilePath + ' -D -d -1'
 					procD = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
-					_command = self._SSOCR_PATH + ' gray_stretch 190 254 invert remove_isolated crop ' + self.OCRCoordinatesList["away_score"][1] + ' ' + self.OCRCoordinatesList["away_score"][2] + ' ' + self.OCRCoordinatesList["away_score"][5] + ' ' + self.OCRCoordinatesList["away_score"][6] + ' ' + self._CACHE_IMAGE_PATH + ' -D -d -1'
+					_command = _ssocrFilePath + ' ' + self.ssocrArguments + ' ' + self.OCRCoordinatesList["away_score"][1] + ' ' + self.OCRCoordinatesList["away_score"][2] + ' ' + self.OCRCoordinatesList["away_score"][5] + ' ' + self.OCRCoordinatesList["away_score"][6] + ' ' + _cacheImageFilePath + ' -D -d -1'
 					procE = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
-					_command = self._SSOCR_PATH + ' gray_stretch 190 254 invert remove_isolated crop ' + self.OCRCoordinatesList["away_fouls"][1] + ' ' + self.OCRCoordinatesList["away_fouls"][2] + ' ' + self.OCRCoordinatesList["away_fouls"][5] + ' ' + self.OCRCoordinatesList["away_fouls"][6] + ' ' + self._CACHE_IMAGE_PATH + ' -D -d -1'
+					_command = _ssocrFilePath + ' ' + self.ssocrArguments + ' ' + self.OCRCoordinatesList["away_fouls"][1] + ' ' + self.OCRCoordinatesList["away_fouls"][2] + ' ' + self.OCRCoordinatesList["away_fouls"][5] + ' ' + self.OCRCoordinatesList["away_fouls"][6] + ' ' + _cacheImageFilePath + ' -D -d -1'
 					procF = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
 
 					clock = procA.stdout.read()
@@ -612,20 +608,12 @@ class OCRWorker(QtCore.QThread):
 					for key, value in digits.iteritems():
 						digits[key] = re.sub("[^0-9]", "", value)
 
-					
-
 					for key, value in digits.iteritems():
 						print key, value
 
 
 
-
-
-					#testbild = imread('testbild.png') # Show processed debug image by ssocr
-					#imshow("image", testbild)
-
 			 		print "CPU %: " + str(psutil.cpu_percent())
-			 		#print tmp
 
 		except:
 			self.error.emit(1)
