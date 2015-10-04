@@ -24,6 +24,19 @@ import numpy
 from cv2 import * # OpenCV imports
 import psutil # CPU usage
 import subprocess # ssocr command line calling
+import re
+
+config_name = 'myapp.cfg'
+
+# determine if application is a script file or frozen exe
+if getattr(sys, 'frozen', False):
+    application_path = os.path.dirname(sys.executable)
+elif __file__:
+    application_path = os.path.dirname(__file__)
+
+config_path = os.path.join(application_path, config_name)
+
+print config_path
 
 
 GroupBoxStyleSheet = u"QGroupBox { border: 1px solid #AAAAAA;margin-top: 12px;} QGroupBox::title {top: -5px;left: 10px;}"
@@ -152,7 +165,7 @@ class Window(QtGui.QWidget):
 			msg["ticker"] = self.tickerTextLineEdit.text()
 
 		if self.tickerRadioGroup.checkedId() == 1: # Player stats selected
-			file_object = open('athlete_data.csv', 'rU')
+			file_object = open(os.path.abspath(os.path.dirname(__file__)) + '/athlete_data.csv', 'rU')
 			reader = unicodecsv.reader(file_object , delimiter=',', dialect='excel')
 
 			statIndexes = []
@@ -225,12 +238,26 @@ class Window(QtGui.QWidget):
 		self.webSocketsWorker.start()
 
 	def init_OCRWorker(self):
-		self.OCRWorker = OCRWorker()
+		self.OCRWorker = OCRWorker(self.returnOCRCoordinatesList())
 		self.OCRWorker.error.connect(self.close)
 		self.OCRWorker.start()
 
 	def returnOCRCoordinatesList(self): # Returns 1:1 copy of self.OCRcoordinates without QObjects
-		return
+		response = {
+			"clock": ["", "", "", "", "", "", ""],
+			"shot_clock": ["", "", "", "", "", "", ""],
+			"quarter": ["", "", "", "", "", "", ""],
+			"home_score": ["", "", "", "", "", "", ""],
+			"home_fouls": ["", "", "", "", "", "", ""],
+			"away_score": ["", "", "", "", "", "", ""],
+			"away_fouls": ["", "", "", "", "", "", ""]
+		}
+		for key, param in self.OCRcoordinates.iteritems():
+			for index, qobj in enumerate(param):
+				response[key][index] = qobj.text()
+
+		return response
+
 
 	def terminate_OCRWorker(self):
 		self.OCRWorker.terminate()
@@ -497,10 +524,12 @@ class WebSocketsWorker(QtCore.QThread):
 
 class OCRWorker(QtCore.QThread):
 	error = QtCore.Signal(int)
+	recognizedDigits = QtCore.Signal(dict)
 
-	def __init__(self):
+	def __init__(self, OCRCoordinatesList):
 		QtCore.QThread.__init__(self)
 
+		self.OCRCoordinatesList = OCRCoordinatesList
 		self._CACHE_IMAGE_FILENAME = 'filename.jpg'
 		self._SSOCR_PATH = os.path.abspath(os.path.dirname(__file__)) + '/ssocr'
 		self._CACHE_IMAGE_PATH = os.path.abspath(os.path.dirname(__file__)) + '/' + self._CACHE_IMAGE_FILENAME
@@ -516,6 +545,7 @@ class OCRWorker(QtCore.QThread):
 		print "OCRWorker QThread successfully opened."
 		print "ssocr path: " + self._SSOCR_PATH
 		print "Cache image path: " + self._CACHE_IMAGE_PATH
+		print self.OCRCoordinatesList
 
 		try:
 			self.cam = VideoCapture(0)   # 0 -> index of camera
@@ -538,20 +568,64 @@ class OCRWorker(QtCore.QThread):
 					putText(img, "X = "+ str(self.mouse_coordinates[0]), (10, 15), FONT_ITALIC, 0.5, (255,255,255))
 					putText(img, "Y = "+ str(self.mouse_coordinates[1]), (10, 30), FONT_ITALIC, 0.5, (255,255,255))
 
+					rectangle(img, (int('0' + self.OCRCoordinatesList["clock"][1]), int('0' + self.OCRCoordinatesList["clock"][2])), (int('0' + self.OCRCoordinatesList["clock"][3]), int('0' + self.OCRCoordinatesList["clock"][4])), (0,255,0), 1)
+					rectangle(img, (int('0' + self.OCRCoordinatesList["quarter"][1]), int('0' + self.OCRCoordinatesList["quarter"][2])), (int('0' + self.OCRCoordinatesList["quarter"][3]), int('0' + self.OCRCoordinatesList["quarter"][4])), (0,255,0), 1)
+					rectangle(img, (int('0' + self.OCRCoordinatesList["home_score"][1]), int('0' + self.OCRCoordinatesList["home_score"][2])), (int('0' + self.OCRCoordinatesList["home_score"][3]), int('0' + self.OCRCoordinatesList["home_score"][4])), (0,255,0), 1)
+					rectangle(img, (int('0' + self.OCRCoordinatesList["home_fouls"][1]), int('0' + self.OCRCoordinatesList["home_fouls"][2])), (int('0' + self.OCRCoordinatesList["home_fouls"][3]), int('0' + self.OCRCoordinatesList["home_fouls"][4])), (0,255,0), 1)
+					rectangle(img, (int('0' + self.OCRCoordinatesList["away_score"][1]), int('0' + self.OCRCoordinatesList["away_score"][2])), (int('0' + self.OCRCoordinatesList["away_score"][3]), int('0' + self.OCRCoordinatesList["away_score"][4])), (0,255,0), 1)
+					rectangle(img, (int('0' + self.OCRCoordinatesList["away_fouls"][1]), int('0' + self.OCRCoordinatesList["away_fouls"][2])), (int('0' + self.OCRCoordinatesList["away_fouls"][3]), int('0' + self.OCRCoordinatesList["away_fouls"][4])), (0,255,0), 1)
+
 					imshow("image", img)
 					imwrite(self._CACHE_IMAGE_FILENAME, img) 
 					waitKey(100)
 
-					#_command = self._SSOCR_PATH + ' gray_stretch 190 254 invert remove_isolated crop 190 20 265 95 ' + self._CACHE_IMAGE_PATH + ' -D -d -1'
-					_command = self._SSOCR_PATH + ' gray_stretch 190 254 invert remove_isolated crop 307 150 55 73 ' + self._CACHE_IMAGE_PATH + ' -D -d -1'
-					proc = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
-					tmp = proc.stdout.read()
+					_command = self._SSOCR_PATH + ' gray_stretch 190 254 invert remove_isolated crop ' + self.OCRCoordinatesList["clock"][1] + ' ' + self.OCRCoordinatesList["clock"][2] + ' ' + self.OCRCoordinatesList["clock"][5] + ' ' + self.OCRCoordinatesList["clock"][6] + ' ' + self._CACHE_IMAGE_PATH + ' -D -d -1'
+					procA = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
+					_command = self._SSOCR_PATH + ' gray_stretch 190 254 invert remove_isolated crop ' + self.OCRCoordinatesList["quarter"][1] + ' ' + self.OCRCoordinatesList["quarter"][2] + ' ' + self.OCRCoordinatesList["quarter"][5] + ' ' + self.OCRCoordinatesList["quarter"][6] + ' ' + self._CACHE_IMAGE_PATH + ' -D -d -1'
+					procB = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
+					_command = self._SSOCR_PATH + ' gray_stretch 190 254 invert remove_isolated crop ' + self.OCRCoordinatesList["home_score"][1] + ' ' + self.OCRCoordinatesList["home_score"][2] + ' ' + self.OCRCoordinatesList["home_score"][5] + ' ' + self.OCRCoordinatesList["home_score"][6] + ' ' + self._CACHE_IMAGE_PATH + ' -D -d -1'
+					procC = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
+					_command = self._SSOCR_PATH + ' gray_stretch 190 254 invert remove_isolated crop ' + self.OCRCoordinatesList["home_fouls"][1] + ' ' + self.OCRCoordinatesList["home_fouls"][2] + ' ' + self.OCRCoordinatesList["home_fouls"][5] + ' ' + self.OCRCoordinatesList["home_fouls"][6] + ' ' + self._CACHE_IMAGE_PATH + ' -D -d -1'
+					procD = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
+					_command = self._SSOCR_PATH + ' gray_stretch 190 254 invert remove_isolated crop ' + self.OCRCoordinatesList["away_score"][1] + ' ' + self.OCRCoordinatesList["away_score"][2] + ' ' + self.OCRCoordinatesList["away_score"][5] + ' ' + self.OCRCoordinatesList["away_score"][6] + ' ' + self._CACHE_IMAGE_PATH + ' -D -d -1'
+					procE = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
+					_command = self._SSOCR_PATH + ' gray_stretch 190 254 invert remove_isolated crop ' + self.OCRCoordinatesList["away_fouls"][1] + ' ' + self.OCRCoordinatesList["away_fouls"][2] + ' ' + self.OCRCoordinatesList["away_fouls"][5] + ' ' + self.OCRCoordinatesList["away_fouls"][6] + ' ' + self._CACHE_IMAGE_PATH + ' -D -d -1'
+					procF = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
+
+					clock = procA.stdout.read()
+					quarter = procB.stdout.read()
+					home_score = procC.stdout.read()
+					home_fouls = procD.stdout.read()
+					away_score = procE.stdout.read()
+					away_fouls = procF.stdout.read()
+
+
+					digits = {
+						"clock": clock,
+						"quarter": quarter,
+						"home_score": home_score,
+						"home_fouls": home_fouls,
+						"away_score": away_score,
+						"away_fouls": away_fouls
+					}
+
+					for key, value in digits.iteritems():
+						digits[key] = re.sub("[^0-9]", "", value)
+
+					
+
+					for key, value in digits.iteritems():
+						print key, value
+
+
+
+
 
 					#testbild = imread('testbild.png') # Show processed debug image by ssocr
 					#imshow("image", testbild)
 
 			 		print "CPU %: " + str(psutil.cpu_percent())
-			 		print tmp
+			 		#print tmp
 
 		except:
 			self.error.emit(1)
