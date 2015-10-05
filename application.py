@@ -103,20 +103,20 @@ class Window(QtGui.QWidget):
 
 
 		self.OCRcoordinates = {
-			"clock_L": [QtGui.QLabel("Clock Left"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0")],
-			"clock_R": [QtGui.QLabel("Clock Right"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0")],
-			"shot_clock": [QtGui.QLabel("Shot Clock"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0")],
-			"quarter": [QtGui.QLabel("Quarter"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0")],
-			"home_score": [QtGui.QLabel("Home Score"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0")],
-			"home_fouls": [QtGui.QLabel("Home Fouls"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0")],
-			"away_score": [QtGui.QLabel("Away Score"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0")],
-			"away_fouls": [QtGui.QLabel("Away Fouls"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0")],
-			"colon_top": [QtGui.QLabel("Colon Top"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0")],
-			"blackout": [QtGui.QLabel("Blackout"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0")]
+			"clock_L": [QtGui.QLabel("Clock Left"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
+			"clock_R": [QtGui.QLabel("Clock Right"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
+			"shot_clock": [QtGui.QLabel("Shot Clock"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
+			"quarter": [QtGui.QLabel("Quarter"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
+			"home_score": [QtGui.QLabel("Home Score"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
+			"home_fouls": [QtGui.QLabel("Home Fouls"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
+			"away_score": [QtGui.QLabel("Away Score"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
+			"away_fouls": [QtGui.QLabel("Away Fouls"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
+			"colon_top": [QtGui.QLabel("Colon Top"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
+			"blackout": [QtGui.QLabel("Blackout"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")]
 		}
-		self.ssocrArguments = QtGui.QLineEdit(u"gray_stretch 190 254 invert remove_isolated crop")
+		self.ssocrArguments = QtGui.QLineEdit(u"gray_stretch 190 254 invert remove_isolated -T crop")
 		self.videoCaptureIndex = QtGui.QLineEdit(u"1")
-		self.waitKey = QtGui.QLineEdit(u"350")
+		self.waitKey = QtGui.QLineEdit(u"300")
 		self.startOCRButton = QtGui.QPushButton("Start OCR")
 		self.startOCRButton.clicked.connect(self.init_OCRWorker)
 		self.terminateOCRButton = QtGui.QPushButton("Stop OCR")
@@ -285,16 +285,16 @@ class Window(QtGui.QWidget):
 
 	def returnOCRCoordinatesList(self): # Returns 1:1 copy of self.OCRcoordinates without QObjects
 		response = {
-			"clock_L": ["", "", "", "", "", "", ""],
-			"clock_R": ["", "", "", "", "", "", ""],
-			"shot_clock": ["", "", "", "", "", "", ""],
-			"quarter": ["", "", "", "", "", "", ""],
-			"home_score": ["", "", "", "", "", "", ""],
-			"home_fouls": ["", "", "", "", "", "", ""],
-			"away_score": ["", "", "", "", "", "", ""],
-			"away_fouls": ["", "", "", "", "", "", ""],
-			"colon_top": ["", "", "", "", "", "", ""],
-			"blackout": ["", "", "", "", "", "", ""]
+			"clock_L": ["", "", "", "", "", "", "", ""],
+			"clock_R": ["", "", "", "", "", "", "", ""],
+			"shot_clock": ["", "", "", "", "", "", "", ""],
+			"quarter": ["", "", "", "", "", "", "", ""],
+			"home_score": ["", "", "", "", "", "", "", ""],
+			"home_fouls": ["", "", "", "", "", "", "", ""],
+			"away_score": ["", "", "", "", "", "", "", ""],
+			"away_fouls": ["", "", "", "", "", "", "", ""],
+			"colon_top": ["", "", "", "", "", "", "", ""],
+			"blackout": ["", "", "", "", "", "", "", ""]
 		}
 		for key, param in self.OCRcoordinates.iteritems():
 			for index, qobj in enumerate(param):
@@ -382,6 +382,11 @@ class Window(QtGui.QWidget):
 
 		self.qsettings.setValue("OCRcoordinates", self.returnOCRCoordinatesList())
 
+		try:
+			self.OCRWorker.importOCRCoordinates(self.returnOCRCoordinatesList())
+		except:
+			pass
+
 	def createOCRGroup(self):
 		groupBox = QtGui.QGroupBox("OCR Coordinates")
 		groupBox.setStyleSheet(GroupBoxStyleSheet)
@@ -410,6 +415,7 @@ class Window(QtGui.QWidget):
 		grid.addWidget(QtGui.QLabel("Y"), 1, 4)
 		grid.addWidget(QtGui.QLabel("Width"), 1, 5)
 		grid.addWidget(QtGui.QLabel("Height"), 1,6)
+		grid.addWidget(QtGui.QLabel("Manual"), 1,7)
 
 		for key, param in self.OCRcoordinates.iteritems(): # Right justify parameter QLabels
 			param[0].setAlignment(Qt.AlignRight)
@@ -425,6 +431,7 @@ class Window(QtGui.QWidget):
 			param[2].editingFinished.connect(self.widthHeightAutoFiller)
 			param[3].editingFinished.connect(self.widthHeightAutoFiller)
 			param[4].editingFinished.connect(self.widthHeightAutoFiller)
+			param[7].editingFinished.connect(self.widthHeightAutoFiller)
 			param[5].setAlignment(Qt.AlignCenter)
 			param[6].setAlignment(Qt.AlignCenter)
 
@@ -618,6 +625,9 @@ class OCRWorker(QtCore.QThread):
 		if event == EVENT_MOUSEMOVE:
 			self.mouse_coordinates = [x, y]
 
+	def importOCRCoordinates(self, OCRCoordinatesList):
+		self.OCRCoordinatesList = OCRCoordinatesList
+
 	def run(self):
 		print "OCRWorker QThread successfully opened."
 		print "ssocr path: " + _ssocrFilePath
@@ -629,8 +639,8 @@ class OCRWorker(QtCore.QThread):
 			print "Webcam native resolution: ",
 			print self.cam.get(cv.CV_CAP_PROP_FRAME_WIDTH), self.cam.get(cv.CV_CAP_PROP_FRAME_HEIGHT)
 
-			self.cam.set(cv.CV_CAP_PROP_FRAME_WIDTH, 427)
-			self.cam.set(cv.CV_CAP_PROP_FRAME_HEIGHT, 240)
+			self.cam.set(cv.CV_CAP_PROP_FRAME_WIDTH, 320)
+			self.cam.set(cv.CV_CAP_PROP_FRAME_HEIGHT, 180)
 
 			namedWindow("OCR Webcam", CV_WINDOW_AUTOSIZE)
 			setMouseCallback("OCR Webcam", self.mouse_hover_coordinates)
@@ -640,6 +650,8 @@ class OCRWorker(QtCore.QThread):
 				success, img = self.cam.read()
 
 				if success:
+					rectangle(img, (int('0' + self.OCRCoordinatesList["blackout"][1]), int('0' + self.OCRCoordinatesList["blackout"][2])), (int('0' + self.OCRCoordinatesList["blackout"][3]), int('0' + self.OCRCoordinatesList["blackout"][4])), (0,0,0), -1)
+					imwrite(_cacheImageFilePath, img)
 					rectangle(img, (0, 0), (90, 35), (0,0,0), -1)
 					putText(img, "X = "+ str(self.mouse_coordinates[0]), (10, 15), FONT_ITALIC, 0.5, (255,255,255))
 					putText(img, "Y = "+ str(self.mouse_coordinates[1]), (10, 30), FONT_ITALIC, 0.5, (255,255,255))
@@ -653,34 +665,34 @@ class OCRWorker(QtCore.QThread):
 					rectangle(img, (int('0' + self.OCRCoordinatesList["away_fouls"][1]), int('0' + self.OCRCoordinatesList["away_fouls"][2])), (int('0' + self.OCRCoordinatesList["away_fouls"][3]), int('0' + self.OCRCoordinatesList["away_fouls"][4])), (0,255,0), 1)
 					rectangle(img, (int('0' + self.OCRCoordinatesList["colon_top"][1]), int('0' + self.OCRCoordinatesList["colon_top"][2])), (int('0' + self.OCRCoordinatesList["colon_top"][3]), int('0' + self.OCRCoordinatesList["colon_top"][4])), (0,255,0), 1)
 					
-					rectangle(img, (int('0' + self.OCRCoordinatesList["blackout"][1]), int('0' + self.OCRCoordinatesList["blackout"][2])), (int('0' + self.OCRCoordinatesList["blackout"][3]), int('0' + self.OCRCoordinatesList["blackout"][4])), (0,0,0), -1)
 
 					colon_top_cropped = img[int('0' + self.OCRCoordinatesList["colon_top"][2]):int('0' + self.OCRCoordinatesList["colon_top"][4]), int('0' + self.OCRCoordinatesList["colon_top"][1]):int('0' + self.OCRCoordinatesList["colon_top"][3])]
 
 					imshow("OCR Webcam", img)
-					imwrite(_cacheImageFilePath, img)
 					waitKey(int(self.waitKey))
 
 					_command = _ssocrFilePath + ' ' + self.ssocrArguments + ' ' + self.OCRCoordinatesList["clock_L"][1] + ' ' + self.OCRCoordinatesList["clock_L"][2] + ' ' + self.OCRCoordinatesList["clock_L"][5] + ' ' + self.OCRCoordinatesList["clock_L"][6] + ' ' + _cacheImageFilePath + ' -d -1'
 					procA = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
 					_command = _ssocrFilePath + ' ' + self.ssocrArguments + ' ' + self.OCRCoordinatesList["clock_R"][1] + ' ' + self.OCRCoordinatesList["clock_R"][2] + ' ' + self.OCRCoordinatesList["clock_R"][5] + ' ' + self.OCRCoordinatesList["clock_R"][6] + ' ' + _cacheImageFilePath + ' -D -d -1'
 					procG = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
-					_command = _ssocrFilePath + ' ' + self.ssocrArguments + ' ' + self.OCRCoordinatesList["quarter"][1] + ' ' + self.OCRCoordinatesList["quarter"][2] + ' ' + self.OCRCoordinatesList["quarter"][5] + ' ' + self.OCRCoordinatesList["quarter"][6] + ' ' + _cacheImageFilePath + ' -d -1'
-					procB = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
+					#_command = _ssocrFilePath + ' ' + self.ssocrArguments + ' ' + self.OCRCoordinatesList["quarter"][1] + ' ' + self.OCRCoordinatesList["quarter"][2] + ' ' + self.OCRCoordinatesList["quarter"][5] + ' ' + self.OCRCoordinatesList["quarter"][6] + ' ' + _cacheImageFilePath + ' -d -1'
+					#procB = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
 					_command = _ssocrFilePath + ' ' + self.ssocrArguments + ' ' + self.OCRCoordinatesList["home_score"][1] + ' ' + self.OCRCoordinatesList["home_score"][2] + ' ' + self.OCRCoordinatesList["home_score"][5] + ' ' + self.OCRCoordinatesList["home_score"][6] + ' ' + _cacheImageFilePath + ' -d -1'
 					procC = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
-					_command = _ssocrFilePath + ' ' + self.ssocrArguments + ' ' + self.OCRCoordinatesList["home_fouls"][1] + ' ' + self.OCRCoordinatesList["home_fouls"][2] + ' ' + self.OCRCoordinatesList["home_fouls"][5] + ' ' + self.OCRCoordinatesList["home_fouls"][6] + ' ' + _cacheImageFilePath + ' -d -1'
-					procD = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
+					#_command = _ssocrFilePath + ' ' + self.ssocrArguments + ' ' + self.OCRCoordinatesList["home_fouls"][1] + ' ' + self.OCRCoordinatesList["home_fouls"][2] + ' ' + self.OCRCoordinatesList["home_fouls"][5] + ' ' + self.OCRCoordinatesList["home_fouls"][6] + ' ' + _cacheImageFilePath + ' -d -1'
+					#procD = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
 					_command = _ssocrFilePath + ' ' + self.ssocrArguments + ' ' + self.OCRCoordinatesList["away_score"][1] + ' ' + self.OCRCoordinatesList["away_score"][2] + ' ' + self.OCRCoordinatesList["away_score"][5] + ' ' + self.OCRCoordinatesList["away_score"][6] + ' ' + _cacheImageFilePath + ' -d -1'
 					procE = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
-					_command = _ssocrFilePath + ' ' + self.ssocrArguments + ' ' + self.OCRCoordinatesList["away_fouls"][1] + ' ' + self.OCRCoordinatesList["away_fouls"][2] + ' ' + self.OCRCoordinatesList["away_fouls"][5] + ' ' + self.OCRCoordinatesList["away_fouls"][6] + ' ' + _cacheImageFilePath + ' -d -1'
-					procF = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
+					#_command = _ssocrFilePath + ' ' + self.ssocrArguments + ' ' + self.OCRCoordinatesList["away_fouls"][1] + ' ' + self.OCRCoordinatesList["away_fouls"][2] + ' ' + self.OCRCoordinatesList["away_fouls"][5] + ' ' + self.OCRCoordinatesList["away_fouls"][6] + ' ' + _cacheImageFilePath + ' -d -1'
+					#procF = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
 
-					clock_L = procA.stdout.read(); clock_R = procG.stdout.read(); quarter = procB.stdout.read(); home_score = procC.stdout.read(); home_fouls = procD.stdout.read(); away_score = procE.stdout.read(); away_fouls = procF.stdout.read()
-					digits = { "clock_L": clock_L, "clock_R": clock_R, "quarter": quarter, "home_score": home_score, "home_fouls": home_fouls, "away_score": away_score, "away_fouls": away_fouls }
+					clock_L = procA.stdout.read(); clock_R = procG.stdout.read(); home_score = procC.stdout.read(); away_score = procE.stdout.read();
+					#quarter = procB.stdout.read(); home_score = procC.stdout.read(); home_fouls = procD.stdout.read(); away_score = procE.stdout.read(); away_fouls = procF.stdout.read()
+					#digits = { "clock_L": clock_L, "clock_R": clock_R, "quarter": quarter, "home_score": home_score, "home_fouls": home_fouls, "away_score": away_score, "away_fouls": away_fouls }
+					digits = { "clock_L": clock_L, "clock_R": clock_R, "quarter": self.OCRCoordinatesList["quarter"][7], "home_score": home_score, "home_fouls": self.OCRCoordinatesList["home_fouls"][7], "away_score": away_score, "away_fouls": self.OCRCoordinatesList["away_fouls"][7] }
 
 					print ""
-					print "Average of Colon: ",
+					print "Average of colon: ",
 					print int(mean(threshold(colon_top_cropped, 100, 255, THRESH_BINARY)[1])[1])
 
 
