@@ -36,6 +36,11 @@ _settingsFilePath = os.path.join(_applicationPath, 'settings.ini')
 _athleteDataFilePath = os.path.join(_applicationPath, 'athlete_data.csv')
 _ssocrFilePath = os.path.join(_applicationPath, 'ssocr')
 _cacheImageFilePath = os.path.join(_applicationPath, 'filename.jpg')
+_ssocrProcessedFilePath = os.path.join(_applicationPath, 'ssocr_processed.jpg')
+_clock1FilePath = os.path.join(_applicationPath, 'clock_1.jpg')
+_clock2FilePath = os.path.join(_applicationPath, 'clock_2.jpg')
+_clock3FilePath = os.path.join(_applicationPath, 'clock_3.jpg')
+_clock4FilePath = os.path.join(_applicationPath, 'clock_4.jpg')
 
 GroupBoxStyleSheet = u"QGroupBox { border: 1px solid #AAAAAA;margin-top: 12px;} QGroupBox::title {top: -5px;left: 10px;}"
 
@@ -103,24 +108,24 @@ class Window(QtGui.QWidget):
 
 
 		self.OCRcoordinates = {
-			"clock_L": [QtGui.QLabel("Clock Left"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
-			"clock_R": [QtGui.QLabel("Clock Right"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
+			"clock_1": [QtGui.QLabel("Clock M1"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
+			"clock_2": [QtGui.QLabel("Clock M2"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
+			"clock_3": [QtGui.QLabel("Clock S1"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
+			"clock_4": [QtGui.QLabel("Clock S2"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
 			"shot_clock": [QtGui.QLabel("Shot Clock"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
-			"quarter": [QtGui.QLabel("Quarter"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
 			"home_score": [QtGui.QLabel("Home Score"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
-			"home_fouls": [QtGui.QLabel("Home Fouls"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
 			"away_score": [QtGui.QLabel("Away Score"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
-			"away_fouls": [QtGui.QLabel("Away Fouls"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
 			"colon_top": [QtGui.QLabel("Colon Top"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
 			"blackout": [QtGui.QLabel("Blackout"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")]
 		}
-		self.ssocrArguments = QtGui.QLineEdit(u"gray_stretch 190 254 invert remove_isolated -T crop")
-		self.videoCaptureIndex = QtGui.QLineEdit(u"1")
+		self.ssocrArguments = QtGui.QLineEdit(u"crop 0 0 450 200 mirror horiz shear 10 mirror horiz gray_stretch 100 254 invert remove_isolated -T ")
+		self.videoCaptureIndex = QtGui.QLineEdit(u"0")
 		self.waitKey = QtGui.QLineEdit(u"300")
 		self.startOCRButton = QtGui.QPushButton("Start OCR")
 		self.startOCRButton.clicked.connect(self.init_OCRWorker)
 		self.terminateOCRButton = QtGui.QPushButton("Stop OCR")
 		self.terminateOCRButton.clicked.connect(self.terminate_OCRWorker)
+		self.CPUpercentage = QtGui.QLabel("0 %")
 
 		self.onAirStatsComboBoxes = [QtGui.QComboBox(self), QtGui.QComboBox(self), QtGui.QComboBox(self), QtGui.QComboBox(self), QtGui.QComboBox(self)]
 		self.tickerTeamSelector.currentIndexChanged.connect(self.populatePlayersSelector)
@@ -133,7 +138,7 @@ class Window(QtGui.QWidget):
 		grid.addWidget(self.createOCRGroup(), 0, 1, 4, 1) # MUST BE HERE, initializes all QObject lists
 		grid.addWidget(self.createSSOCRGroup(), 4, 1, 1, 1) # MUST BE HERE, initializes all QObject lists
 		grid.addWidget(self.createOCRButtonGroup(), 5, 1, 1, 1) # MUST BE HERE, initializes all QObject lists
-		#grid.addWidget(self.createDebugGroup(), 6, 1, 1, 1) # MUST BE HERE, initializes all QObject lists
+		grid.addWidget(self.createDebugGroup(), 6, 1, 1, 1) # MUST BE HERE, initializes all QObject lists
 		grid.addWidget(self.updateScoreboard, 6, 0, 1, 1) # MUST BE HERE, initializes all QObject lists
 		
 		self.init_WebSocketsWorker() # Start ws:// server at port 9000
@@ -281,18 +286,18 @@ class Window(QtGui.QWidget):
 		self.OCRWorker = OCRWorker(self.returnOCRCoordinatesList(), self.ssocrArguments.text(), self.waitKey.text(), self.videoCaptureIndex.text())
 		self.OCRWorker.error.connect(self.close)
 		self.OCRWorker.recognizedDigits.connect(self.sendRealTimeCommandToBrowser)
+		self.OCRWorker.processedFrameFlag.connect(lambda: self.CPUpercentage.setText('CPU: ' + str(psutil.cpu_percent()) + "%"))
 		self.OCRWorker.start() # Call to start OCR openCV thread
 
 	def returnOCRCoordinatesList(self): # Returns 1:1 copy of self.OCRcoordinates without QObjects
 		response = {
-			"clock_L": ["", "", "", "", "", "", "", ""],
-			"clock_R": ["", "", "", "", "", "", "", ""],
+			"clock_1": ["", "", "", "", "", "", "", ""],
+			"clock_2": ["", "", "", "", "", "", "", ""],
+			"clock_3": ["", "", "", "", "", "", "", ""],
+			"clock_4": ["", "", "", "", "", "", "", ""],
 			"shot_clock": ["", "", "", "", "", "", "", ""],
-			"quarter": ["", "", "", "", "", "", "", ""],
 			"home_score": ["", "", "", "", "", "", "", ""],
-			"home_fouls": ["", "", "", "", "", "", "", ""],
 			"away_score": ["", "", "", "", "", "", "", ""],
-			"away_fouls": ["", "", "", "", "", "", "", ""],
 			"colon_top": ["", "", "", "", "", "", "", ""],
 			"blackout": ["", "", "", "", "", "", "", ""]
 		}
@@ -303,7 +308,7 @@ class Window(QtGui.QWidget):
 		return response
 
 	def terminate_OCRWorker(self):
-		self.OCRWorker.terminate()
+		self.OCRWorker.kill()
 		del(self.OCRWorker)
 		
 	def createTickerGraphicGroup(self):
@@ -437,27 +442,20 @@ class Window(QtGui.QWidget):
 
 
 
-		for index, qobj in enumerate(self.OCRcoordinates["clock_L"]):
+		for index, qobj in enumerate(self.OCRcoordinates["clock_1"]):
 			grid.addWidget(qobj, 2, index)
-
-		for index, qobj in enumerate(self.OCRcoordinates["clock_R"]):
+		for index, qobj in enumerate(self.OCRcoordinates["clock_2"]):
 			grid.addWidget(qobj, 3, index)
-
-		for index, qobj in enumerate(self.OCRcoordinates["shot_clock"]):
+		for index, qobj in enumerate(self.OCRcoordinates["clock_3"]):
 			grid.addWidget(qobj, 4, index)
-
-		for index, qobj in enumerate(self.OCRcoordinates["quarter"]):
+		for index, qobj in enumerate(self.OCRcoordinates["clock_4"]):
 			grid.addWidget(qobj, 5, index)
-
-		for index, qobj in enumerate(self.OCRcoordinates["home_score"]):
+		for index, qobj in enumerate(self.OCRcoordinates["shot_clock"]):
 			grid.addWidget(qobj, 6, index)
-		for index, qobj in enumerate(self.OCRcoordinates["home_fouls"]):
+		for index, qobj in enumerate(self.OCRcoordinates["home_score"]):
 			grid.addWidget(qobj, 7, index)
-
 		for index, qobj in enumerate(self.OCRcoordinates["away_score"]):
 			grid.addWidget(qobj, 8, index)
-		for index, qobj in enumerate(self.OCRcoordinates["away_fouls"]):
-			grid.addWidget(qobj, 9, index)
 		for index, qobj in enumerate(self.OCRcoordinates["colon_top"]):
 			grid.addWidget(qobj, 10, index)
 		for index, qobj in enumerate(self.OCRcoordinates["blackout"]):
@@ -480,12 +478,12 @@ class Window(QtGui.QWidget):
 		grid.setHorizontalSpacing(10)
 		grid.setVerticalSpacing(5)
 
-		grid.addWidget(QtGui.QLabel("SSOCR Arguments"), 0, 0)
-		grid.addWidget(QtGui.QLabel("WaitKey"), 0, 1)
-		grid.addWidget(QtGui.QLabel("Webcam Index"), 0, 2)
-		grid.addWidget(self.ssocrArguments, 1, 0)
-		grid.addWidget(self.waitKey, 1, 1)
-		grid.addWidget(self.videoCaptureIndex, 1, 2)
+		grid.addWidget(QtGui.QLabel("SSOCR Arguments"), 0, 0, 1, 3)
+		grid.addWidget(QtGui.QLabel("WaitKey"), 2, 0)
+		grid.addWidget(QtGui.QLabel("Webcam Index"), 2, 1)
+		grid.addWidget(self.ssocrArguments, 1, 0, 1, 3)
+		grid.addWidget(self.waitKey, 3, 0)
+		grid.addWidget(self.videoCaptureIndex, 3, 1)
 
 
 		grid.setColumnStretch(0,50)
@@ -516,7 +514,7 @@ class Window(QtGui.QWidget):
 		grid.setHorizontalSpacing(10)
 		grid.setVerticalSpacing(5)
 
-		#grid.addWidget(self.startOCRButton, 0, 0)
+		grid.addWidget(self.CPUpercentage, 0, 0)
 		#grid.addWidget(self.terminateOCRButton, 0, 1)
 
 		groupBox.setLayout(grid)
@@ -606,7 +604,7 @@ class OCRWorker(QtCore.QThread):
 	recognizedDigits = QtCore.Signal(dict)
 
 	colonMean = QtCore.Signal(str)
-	CPUpercentage = QtCore.Signal(str)
+	processedFrameFlag = QtCore.Signal(int)
 
 
 	def __init__(self, OCRCoordinatesList, ssocrArguments, waitKey, videoCaptureIndex):
@@ -614,11 +612,28 @@ class OCRWorker(QtCore.QThread):
 
 		self.ssocrArguments = ssocrArguments
 		self.waitKey = waitKey
-		self.OCRCoordinatesList = OCRCoordinatesList
+		self.coords = OCRCoordinatesList
 		self.videoCaptureIndex = videoCaptureIndex
+		self._allowedNextDigits = {
+			"clock_1": [9, 0, 1, 2, 3, 4, 5, 6, 7, 8], 
+			"clock_2": [9, 0, 1, 2, 3, 4, 5, 6, 7, 8], 
+			"clock_3": [5, 0, 1, 2, 3, 4, 5, 6, 7, 8], 
+			"clock_4": [9, 0, 1, 2, 3, 4, 5, 6, 7, 8]
+			}
+		self.FIFO_clocks = {
+			"clock_1": [0, 0, 0], 
+			"clock_2": [0, 0, 0], 
+			"clock_3": [0, 0, 0], 
+			"clock_4": [0, 0, 0]
+			}
+		self.previousDigit = {
+			"clock_1": 0, 
+			"clock_2": 0, 
+			"clock_3": 0, 
+			"clock_4": 0
+			}
 
 		self.mouse_coordinates = [0, 0]
-
 		self.cam = None # VideoCapture object, created in run()
 
 	def mouse_hover_coordinates(self, event, x, y, flags, param):
@@ -626,7 +641,17 @@ class OCRWorker(QtCore.QThread):
 			self.mouse_coordinates = [x, y]
 
 	def importOCRCoordinates(self, OCRCoordinatesList):
-		self.OCRCoordinatesList = OCRCoordinatesList
+		self.coords = OCRCoordinatesList
+
+	def importSSOCRArguments(self, ssocrArguments):
+		self.ssocrArguments = ssocrArguments
+
+	def cleanInt(self, dirtyInteger):
+		return int(str('0' + re.sub("[^0-9]", "", dirtyInteger))[:1])
+
+	def kill(self):
+		destroyAllWindows()
+		self.terminate()
 
 	def run(self):
 		print "OCRWorker QThread successfully opened."
@@ -635,88 +660,136 @@ class OCRWorker(QtCore.QThread):
 
 		try:
 			self.cam = VideoCapture(int(self.videoCaptureIndex))   # 0 -> index of camera
-			#\self.cam = VideoCapture('test_video.mov')   # 0 -> index of camera
+			#self.cam = VideoCapture('test_images/test_video_flip.mov')   # 0 -> index of camera
+			
 			print "Webcam native resolution: ",
 			print self.cam.get(cv.CV_CAP_PROP_FRAME_WIDTH), self.cam.get(cv.CV_CAP_PROP_FRAME_HEIGHT)
 
-			self.cam.set(cv.CV_CAP_PROP_FRAME_WIDTH, 320)
-			self.cam.set(cv.CV_CAP_PROP_FRAME_HEIGHT, 180)
+			self.cam.set(cv.CV_CAP_PROP_FRAME_WIDTH, 640)
+			self.cam.set(cv.CV_CAP_PROP_FRAME_HEIGHT, 480)
 
 			namedWindow("OCR Webcam", CV_WINDOW_AUTOSIZE)
-			setMouseCallback("OCR Webcam", self.mouse_hover_coordinates)
+			namedWindow("SSOCR", CV_WINDOW_AUTOSIZE)
+			namedWindow("Digit M1", CV_WINDOW_AUTOSIZE)
+			namedWindow("Digit M2", CV_WINDOW_AUTOSIZE)
+			namedWindow("Digit S1", CV_WINDOW_AUTOSIZE)
+			namedWindow("Digit S2", CV_WINDOW_AUTOSIZE)
+			namedWindow("SSOCR", CV_WINDOW_AUTOSIZE)
+
+			moveWindow("OCR Webcam", 0, 10)
+			moveWindow("SSOCR", 600, 10)
+			moveWindow("Digit M1", 0, 500)
+			moveWindow("Digit M2", 60, 500)
+			moveWindow("Digit S1", 120, 500)
+			moveWindow("Digit S2", 180, 500)
+
+			setMouseCallback("SSOCR", self.mouse_hover_coordinates)
+
 
 			while True:
 				#img = imread('test_images/tpe_gym_test.jpg'); success = True
 				success, img = self.cam.read()
 
 				if success:
-					rectangle(img, (int('0' + self.OCRCoordinatesList["blackout"][1]), int('0' + self.OCRCoordinatesList["blackout"][2])), (int('0' + self.OCRCoordinatesList["blackout"][3]), int('0' + self.OCRCoordinatesList["blackout"][4])), (0,0,0), -1)
+					##### SAVE GRABBED WEBCAM IMAGE WITH BLACKOUT OVERLAY ######
+					rectangle(img, (int('0' + self.coords["blackout"][1]), int('0' + self.coords["blackout"][2])), (int('0' + self.coords["blackout"][3]), int('0' + self.coords["blackout"][4])), (0,0,0), -1)
 					imwrite(_cacheImageFilePath, img)
-					rectangle(img, (0, 0), (90, 35), (0,0,0), -1)
-					putText(img, "X = "+ str(self.mouse_coordinates[0]), (10, 15), FONT_ITALIC, 0.5, (255,255,255))
-					putText(img, "Y = "+ str(self.mouse_coordinates[1]), (10, 30), FONT_ITALIC, 0.5, (255,255,255))
-
-					rectangle(img, (int('0' + self.OCRCoordinatesList["clock_L"][1]), int('0' + self.OCRCoordinatesList["clock_L"][2])), (int('0' + self.OCRCoordinatesList["clock_L"][3]), int('0' + self.OCRCoordinatesList["clock_L"][4])), (0,255,0), 1)
-					rectangle(img, (int('0' + self.OCRCoordinatesList["clock_R"][1]), int('0' + self.OCRCoordinatesList["clock_R"][2])), (int('0' + self.OCRCoordinatesList["clock_R"][3]), int('0' + self.OCRCoordinatesList["clock_R"][4])), (0,255,0), 1)
-					rectangle(img, (int('0' + self.OCRCoordinatesList["quarter"][1]), int('0' + self.OCRCoordinatesList["quarter"][2])), (int('0' + self.OCRCoordinatesList["quarter"][3]), int('0' + self.OCRCoordinatesList["quarter"][4])), (0,255,0), 1)
-					rectangle(img, (int('0' + self.OCRCoordinatesList["home_score"][1]), int('0' + self.OCRCoordinatesList["home_score"][2])), (int('0' + self.OCRCoordinatesList["home_score"][3]), int('0' + self.OCRCoordinatesList["home_score"][4])), (0,255,0), 1)
-					rectangle(img, (int('0' + self.OCRCoordinatesList["home_fouls"][1]), int('0' + self.OCRCoordinatesList["home_fouls"][2])), (int('0' + self.OCRCoordinatesList["home_fouls"][3]), int('0' + self.OCRCoordinatesList["home_fouls"][4])), (0,255,0), 1)
-					rectangle(img, (int('0' + self.OCRCoordinatesList["away_score"][1]), int('0' + self.OCRCoordinatesList["away_score"][2])), (int('0' + self.OCRCoordinatesList["away_score"][3]), int('0' + self.OCRCoordinatesList["away_score"][4])), (0,255,0), 1)
-					rectangle(img, (int('0' + self.OCRCoordinatesList["away_fouls"][1]), int('0' + self.OCRCoordinatesList["away_fouls"][2])), (int('0' + self.OCRCoordinatesList["away_fouls"][3]), int('0' + self.OCRCoordinatesList["away_fouls"][4])), (0,255,0), 1)
-					rectangle(img, (int('0' + self.OCRCoordinatesList["colon_top"][1]), int('0' + self.OCRCoordinatesList["colon_top"][2])), (int('0' + self.OCRCoordinatesList["colon_top"][3]), int('0' + self.OCRCoordinatesList["colon_top"][4])), (0,255,0), 1)
-					
-
-					colon_top_cropped = img[int('0' + self.OCRCoordinatesList["colon_top"][2]):int('0' + self.OCRCoordinatesList["colon_top"][4]), int('0' + self.OCRCoordinatesList["colon_top"][1]):int('0' + self.OCRCoordinatesList["colon_top"][3])]
-
 					imshow("OCR Webcam", img)
-					waitKey(int(self.waitKey))
 
-					_command = _ssocrFilePath + ' ' + self.ssocrArguments + ' ' + self.OCRCoordinatesList["clock_L"][1] + ' ' + self.OCRCoordinatesList["clock_L"][2] + ' ' + self.OCRCoordinatesList["clock_L"][5] + ' ' + self.OCRCoordinatesList["clock_L"][6] + ' ' + _cacheImageFilePath + ' -d -1'
-					procA = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
-					_command = _ssocrFilePath + ' ' + self.ssocrArguments + ' ' + self.OCRCoordinatesList["clock_R"][1] + ' ' + self.OCRCoordinatesList["clock_R"][2] + ' ' + self.OCRCoordinatesList["clock_R"][5] + ' ' + self.OCRCoordinatesList["clock_R"][6] + ' ' + _cacheImageFilePath + ' -D -d -1'
-					procG = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
-					#_command = _ssocrFilePath + ' ' + self.ssocrArguments + ' ' + self.OCRCoordinatesList["quarter"][1] + ' ' + self.OCRCoordinatesList["quarter"][2] + ' ' + self.OCRCoordinatesList["quarter"][5] + ' ' + self.OCRCoordinatesList["quarter"][6] + ' ' + _cacheImageFilePath + ' -d -1'
-					#procB = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
-					_command = _ssocrFilePath + ' ' + self.ssocrArguments + ' ' + self.OCRCoordinatesList["home_score"][1] + ' ' + self.OCRCoordinatesList["home_score"][2] + ' ' + self.OCRCoordinatesList["home_score"][5] + ' ' + self.OCRCoordinatesList["home_score"][6] + ' ' + _cacheImageFilePath + ' -d -1'
-					procC = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
-					#_command = _ssocrFilePath + ' ' + self.ssocrArguments + ' ' + self.OCRCoordinatesList["home_fouls"][1] + ' ' + self.OCRCoordinatesList["home_fouls"][2] + ' ' + self.OCRCoordinatesList["home_fouls"][5] + ' ' + self.OCRCoordinatesList["home_fouls"][6] + ' ' + _cacheImageFilePath + ' -d -1'
-					#procD = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
-					_command = _ssocrFilePath + ' ' + self.ssocrArguments + ' ' + self.OCRCoordinatesList["away_score"][1] + ' ' + self.OCRCoordinatesList["away_score"][2] + ' ' + self.OCRCoordinatesList["away_score"][5] + ' ' + self.OCRCoordinatesList["away_score"][6] + ' ' + _cacheImageFilePath + ' -d -1'
-					procE = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
-					#_command = _ssocrFilePath + ' ' + self.ssocrArguments + ' ' + self.OCRCoordinatesList["away_fouls"][1] + ' ' + self.OCRCoordinatesList["away_fouls"][2] + ' ' + self.OCRCoordinatesList["away_fouls"][5] + ' ' + self.OCRCoordinatesList["away_fouls"][6] + ' ' + _cacheImageFilePath + ' -d -1'
-					#procF = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
 
-					clock_L = procA.stdout.read(); clock_R = procG.stdout.read(); home_score = procC.stdout.read(); away_score = procE.stdout.read();
-					#quarter = procB.stdout.read(); home_score = procC.stdout.read(); home_fouls = procD.stdout.read(); away_score = procE.stdout.read(); away_fouls = procF.stdout.read()
-					#digits = { "clock_L": clock_L, "clock_R": clock_R, "quarter": quarter, "home_score": home_score, "home_fouls": home_fouls, "away_score": away_score, "away_fouls": away_fouls }
-					digits = { "clock_L": clock_L, "clock_R": clock_R, "quarter": self.OCRCoordinatesList["quarter"][7], "home_score": home_score, "home_fouls": self.OCRCoordinatesList["home_fouls"][7], "away_score": away_score, "away_fouls": self.OCRCoordinatesList["away_fouls"][7] }
+					##### RUN PRELIMINARY IMAGE PROCESSING #####
+					_command = _ssocrFilePath + ' ' + self.ssocrArguments + ' ' + _cacheImageFilePath + ' -p -o ' + _ssocrProcessedFilePath
+					preprocessing = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
+
+					##### SHOW PRELIMINARY PROCESSED IMAGE WITH BOUNDING BOXES, X, Y #####
+					ssocr_img = imread(_ssocrProcessedFilePath)
+					putText(ssocr_img, str(self.mouse_coordinates[0]) + ", " + str(self.mouse_coordinates[1]), (5, 15), FONT_ITALIC, 0.4, (0,0,0))
+					rectangle(ssocr_img, (int('0' + self.coords["clock_1"][1]), int('0' + self.coords["clock_1"][2])), (int('0' + self.coords["clock_1"][3]), int('0' + self.coords["clock_1"][4])), (0,0,255), 1)
+					rectangle(ssocr_img, (int('0' + self.coords["clock_2"][1]), int('0' + self.coords["clock_2"][2])), (int('0' + self.coords["clock_2"][3]), int('0' + self.coords["clock_2"][4])), (0,0,255), 1)
+					rectangle(ssocr_img, (int('0' + self.coords["clock_3"][1]), int('0' + self.coords["clock_3"][2])), (int('0' + self.coords["clock_3"][3]), int('0' + self.coords["clock_3"][4])), (0,0,255), 1)
+					rectangle(ssocr_img, (int('0' + self.coords["clock_4"][1]), int('0' + self.coords["clock_4"][2])), (int('0' + self.coords["clock_4"][3]), int('0' + self.coords["clock_4"][4])), (0,0,255), 1)
+					rectangle(ssocr_img, (int('0' + self.coords["home_score"][1]), int('0' + self.coords["home_score"][2])), (int('0' + self.coords["home_score"][3]), int('0' + self.coords["home_score"][4])), (0,0,255), 1)
+					rectangle(ssocr_img, (int('0' + self.coords["away_score"][1]), int('0' + self.coords["away_score"][2])), (int('0' + self.coords["away_score"][3]), int('0' + self.coords["away_score"][4])), (0,0,255), 1)
+					rectangle(ssocr_img, (int('0' + self.coords["colon_top"][1]), int('0' + self.coords["colon_top"][2])), (int('0' + self.coords["colon_top"][3]), int('0' + self.coords["colon_top"][4])), (0,0,255), 1)
+					imshow("SSOCR", ssocr_img)
+
+					##### RECOGNIZE INDIVIDUAL CLOCK DIGITS, SHOW IN WINDOWS #####
+					_command = _ssocrFilePath + ' crop ' + self.coords["clock_1"][1] + ' ' + self.coords["clock_1"][2] + ' ' + self.coords["clock_1"][5] + ' ' + self.coords["clock_1"][6] + ' ' + _ssocrProcessedFilePath + ' -d -1 --debug-image=' + _clock1FilePath
+					_clock_1 = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
+					_command = _ssocrFilePath + ' crop ' + self.coords["clock_2"][1] + ' ' + self.coords["clock_2"][2] + ' ' + self.coords["clock_2"][5] + ' ' + self.coords["clock_2"][6] + ' ' + _ssocrProcessedFilePath + ' -d -1 --debug-image=' + _clock2FilePath
+					_clock_2 = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
+					_command = _ssocrFilePath + ' crop ' + self.coords["clock_3"][1] + ' ' + self.coords["clock_3"][2] + ' ' + self.coords["clock_3"][5] + ' ' + self.coords["clock_3"][6] + ' ' + _ssocrProcessedFilePath + ' -d -1 --debug-image=' + _clock3FilePath
+					_clock_3 = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
+					_command = _ssocrFilePath + ' crop ' + self.coords["clock_4"][1] + ' ' + self.coords["clock_4"][2] + ' ' + self.coords["clock_4"][5] + ' ' + self.coords["clock_4"][6] + ' ' + _ssocrProcessedFilePath + ' -d -1 --debug-image=' + _clock4FilePath
+					_clock_4 = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
+
+					clock_1 = self.cleanInt(_clock_1.stdout.read())
+					clock_2 = self.cleanInt(_clock_2.stdout.read())
+					clock_3 = self.cleanInt(_clock_3.stdout.read())
+					clock_4 = self.cleanInt(_clock_4.stdout.read())
+
+					imshow("Digit M1", imread(_clock1FilePath))
+					imshow("Digit M2", imread(_clock2FilePath))
+					imshow("Digit S1", imread(_clock3FilePath))
+					imshow("Digit S2", imread(_clock4FilePath))
+
+
+					##### FILTER ALGORITHM #####
+					print "Raw:\t\t", clock_1, clock_2, clock_3, clock_4
+
+					self.FIFO_clocks['clock_1'].append(clock_1)
+					self.FIFO_clocks['clock_1'].pop(0)
+					self.FIFO_clocks['clock_2'].append(clock_2)
+					self.FIFO_clocks['clock_2'].pop(0)
+					self.FIFO_clocks['clock_3'].append(clock_3)
+					self.FIFO_clocks['clock_3'].pop(0)
+					self.FIFO_clocks['clock_4'].append(clock_4)
+					self.FIFO_clocks['clock_4'].pop(0)
+
+					print "Clock 1 FIFO:", self.FIFO_clocks['clock_1']
+					print "Clock 2 FIFO:", self.FIFO_clocks['clock_2']
+					print "Clock 3 FIFO:", self.FIFO_clocks['clock_3']
+					print "Clock 4 FIFO:", self.FIFO_clocks['clock_4']
+
+
+					if(self.FIFO_clocks['clock_1'][2] == self._allowedNextDigits["clock_1"][self.FIFO_clocks['clock_1'][1]]):
+						clock_1 = self.FIFO_clocks['clock_1'][2]
+					else: clock_1 = sorted(self.FIFO_clocks['clock_1'], key=self.FIFO_clocks['clock_1'].count)[-1]
+
+					if(self.FIFO_clocks['clock_2'][2] == self._allowedNextDigits["clock_2"][self.FIFO_clocks['clock_2'][1]]):
+						clock_2 = self.FIFO_clocks['clock_2'][2]
+					else: clock_2 = sorted(self.FIFO_clocks['clock_2'], key=self.FIFO_clocks['clock_2'].count)[-1]
+
+					if(self.FIFO_clocks['clock_3'][2] == self._allowedNextDigits["clock_3"][self.FIFO_clocks['clock_3'][1]]):
+						clock_3 = self.FIFO_clocks['clock_3'][2]
+					else: clock_3 = sorted(self.FIFO_clocks['clock_3'], key=self.FIFO_clocks['clock_3'].count)[-1]
+
+					if(self.FIFO_clocks['clock_4'][2] == self._allowedNextDigits["clock_4"][self.FIFO_clocks['clock_4'][1]]):
+						clock_4 = self.FIFO_clocks['clock_4'][2]
+					else: clock_4 = sorted(self.FIFO_clocks['clock_4'], key=self.FIFO_clocks['clock_4'].count)[-1]
+
+
+					print "Filtered:\t", clock_1, clock_2, clock_3, clock_4
+
+					##### COLON PROCESSING #####
+					colon_top_cropped = ssocr_img[int('0' + self.coords["colon_top"][2]):int('0' + self.coords["colon_top"][4]), int('0' + self.coords["colon_top"][1]):int('0' + self.coords["colon_top"][3])]
+
+					##### TEXTUAL FORMATTING ######
+					_minutes = str(int('0' + str(clock_1) + str(clock_2)))
+					_seconds = str(int('0' + str(clock_3) + str(clock_4)))
+					if(len(_seconds) == 1): _seconds = '0' + _seconds
+
+					print _minutes + ":" + _seconds
+
+
+
+
 
 					print ""
-					print "Average of colon: ",
-					print int(mean(threshold(colon_top_cropped, 100, 255, THRESH_BINARY)[1])[1])
-
-
-					for key, value in digits.iteritems(): # Remove all non integer digits from ssocr output
-						digits[key] = re.sub("[^0-9]", "", value)
-
-
-					#if(int('0' + digits["clock_L"]) > 60): continue
-
-					if(int(mean(threshold(colon_top_cropped, 100, 255, THRESH_BINARY)[1])[1]) > 200):
-						digits['clock'] = str(digits["clock_L"]) + ":" + str(digits["clock_R"])
-					else:
-						digits['clock'] = ":" + str(digits["clock_L"])
-
-
-					for key, value in digits.iteritems():
-						print key, value
-
-
-			 		print "CPU %: " + str(psutil.cpu_percent())
-
-			 		self.CPUpercentage.emit(str(psutil.cpu_percent()))
+					waitKey(int(self.waitKey))
+			 		self.processedFrameFlag.emit(1)
 			 		self.colonMean.emit(str(int(mean(threshold(colon_top_cropped, 100, 255, THRESH_BINARY)[1])[1])))
-			 		self.recognizedDigits.emit(digits)
+			 		#self.recognizedDigits.emit(digits)
 
 
 
