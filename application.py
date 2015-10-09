@@ -25,12 +25,12 @@ from cv2 import * # OpenCV imports
 import psutil # CPU usage
 import subprocess # ssocr command line calling
 import re # Integers only from ssocr output
-
+import requests
 
 if getattr(sys, 'frozen', False):
-    _applicationPath = os.path.dirname(sys.executable)
+	_applicationPath = os.path.dirname(sys.executable)
 elif __file__:
-    _applicationPath = os.path.dirname(__file__)
+	_applicationPath = os.path.dirname(__file__)
 
 _settingsFilePath = os.path.join(_applicationPath, 'settings.ini')
 _athleteDataFilePath = os.path.join(_applicationPath, 'athlete_data.csv')
@@ -45,11 +45,34 @@ _clock3FilePath = os.path.join(_applicationPath, 'clock_3.jpg')
 _clock4FilePath = os.path.join(_applicationPath, 'clock_4.jpg')
 _awayScoreFilePath = os.path.join(_applicationPath, '_away_score.jpg')
 _homeScoreFilePath = os.path.join(_applicationPath, '_home_score.jpg')
+_serverIP = 'http://128.199.230.223'
 
 print "ssocr path: " + _ssocrFilePath
 print "Cache image path: " + _GCcacheImageFilePath
 
 GroupBoxStyleSheet = u"QGroupBox { border: 1px solid #AAAAAA;margin-top: 12px;} QGroupBox::title {top: -5px;left: 10px;}"
+
+def autocrop(image, threshold=0):
+	"""Crops any edges below or equal to threshold
+	Crops blank image to 1x1.
+	Returns cropped image.
+
+	"""
+	if len(image.shape) == 3:
+		flatImage = numpy.max(image, 2)
+	else:
+		flatImage = image
+	assert len(flatImage.shape) == 2
+
+	rows = numpy.where(numpy.max(flatImage, 0) > threshold)[0]
+	if rows.size:
+		cols = numpy.where(numpy.max(flatImage, 1) > threshold)[0]
+		image = image[cols[0]: cols[-1] + 1, rows[0]: rows[-1] + 1]
+	else:
+		image = image[:1, :1]
+
+	return image
+
 
 class MainWindow(QtGui.QMainWindow):
 	def __init__(self, parent=None):
@@ -81,7 +104,7 @@ class MainWindow(QtGui.QMainWindow):
 		self.setCentralWidget(self.main_widget)
 		self.statusBar()
 		self.setWindowTitle('Basketball OCR and Scoreboard Control')
-		self.resize(300,400)
+		self.resize(1000,400)
 		self.show()
 
 
@@ -98,11 +121,16 @@ class Window(QtGui.QWidget):
 		self.teamAImagePath = QtGui.QLineEdit(u"")
 		self.teamAColor = QtGui.QLineEdit(u"")
 		self.teamAName = QtGui.QLineEdit(u"")
+		self.teamAFouls = QtGui.QLineEdit(u"")
 		#self.teamASelector = QtGui.QComboBox(self)
 		self.teamBImagePath = QtGui.QLineEdit(u"")
 		self.teamBName = QtGui.QLineEdit(u"")
 		self.teamBColor = QtGui.QLineEdit(u"")
+		self.teamBFouls = QtGui.QLineEdit(u"")
 		#self.teamBSelector = QtGui.QComboBox(self)
+
+		self.quarter = QtGui.QLineEdit(u"")
+
 
 		self.tickerRadioGroup = QtGui.QButtonGroup()
 		self.tickerTextRadio = QtGui.QRadioButton("Text")
@@ -120,6 +148,9 @@ class Window(QtGui.QWidget):
 			"clock_4": [QtGui.QLabel("Clock S2"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
 			"home_score": [QtGui.QLabel("Home Score"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
 			"away_score": [QtGui.QLabel("Away Score"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
+			"home_fouls": [QtGui.QLabel("Home Fouls"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
+			"away_fouls": [QtGui.QLabel("Away Fouls"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
+			"quarter": [QtGui.QLabel("Quarter"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
 			"colon_top": [QtGui.QLabel("Colon Top"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")],
 			"blackout": [QtGui.QLabel("Blackout"), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLineEdit(u""), QtGui.QLabel("0"), QtGui.QLabel("0"), QtGui.QLineEdit(u"")]
 		}
@@ -143,9 +174,11 @@ class Window(QtGui.QWidget):
 		self.terminateSCOCRButton = QtGui.QPushButton("Stop OCR")
 		self.terminateSCOCRButton.clicked.connect(self.terminate_SCOCRWorker)
 
-
+		self.gameID = QtGui.QLineEdit(self.qsettings.value("gameID", '0'))
 
 		self.CPUpercentage = QtGui.QLabel("0 %")
+		self.gameClock = QtGui.QLabel("00:00")
+		self.shotClock = QtGui.QLabel("00")
 
 		self.onAirStatsComboBoxes = [QtGui.QComboBox(self), QtGui.QComboBox(self), QtGui.QComboBox(self), QtGui.QComboBox(self), QtGui.QComboBox(self)]
 		self.tickerTeamSelector.currentIndexChanged.connect(self.populatePlayersSelector)
@@ -160,14 +193,16 @@ class Window(QtGui.QWidget):
 		grid.addWidget(self.createSC_OCR_Group(), 0, 2, 2, 1) # MUST BE HERE, initializes all QObject lists
 		grid.addWidget(self.createGC_SSOCR_Group(), 4, 1, 1, 1) # MUST BE HERE, initializes all QObject lists
 		grid.addWidget(self.createSC_SSOCR_Group(), 2, 2, 1, 1) # MUST BE HERE, initializes all QObject lists
-		grid.addWidget(self.createDebugGroup(), 6, 1, 1, 1) # MUST BE HERE, initializes all QObject lists
+		grid.addWidget(self.createAPIGroup(), 3, 2, 1, 1) # MUST BE HERE, initializes all QObject lists
+		grid.addWidget(self.createDebugGroup(), 5, 1, 2, 1) # MUST BE HERE, initializes all QObject lists
 		grid.addWidget(self.updateScoreboard, 6, 0, 1, 1) # MUST BE HERE, initializes all QObject lists
 		
 		self.init_WebSocketsWorker() # Start ws:// server at port 9000
 		#self.init_OCRWorker() # Start OpenCV, open webcam
 
-		grid.setColumnStretch(0,5)
+		grid.setColumnStretch(0,100)
 		grid.setColumnStretch(1,100)
+		grid.setColumnStretch(2,100)
 
 		grid.setHorizontalSpacing(10)
 		grid.setVerticalSpacing(10)
@@ -241,29 +276,10 @@ class Window(QtGui.QWidget):
 
 		self.webSocketsWorker.send(json.dumps(msg));
 
-	def sendRealTimeCommandToBrowser(self, recognizedDigits):
-		msg_game = {
-			"clock": recognizedDigits['clock'],
-			"shot_clock": '',
-			"quarter": recognizedDigits['quarter'],
-			"possesion": ''
-		}
-		msg_guest = {
-			"score": recognizedDigits['away_score'],
-			"fouls": recognizedDigits['away_fouls']
-		}
-		msg_home = {
-			"score": recognizedDigits['home_score'],
-			"fouls": recognizedDigits['home_fouls']
-		}
-
-		packet = {
-			"game": msg_game,
-			"guest": msg_guest,
-			"home": msg_home
-		}
-
-		self.webSocketsWorker.send(json.dumps(packet))
+		#requests.post(_serverIP + '/games/' + self.gameID.text() + '/' + 'guest_name' + '/' + str(msg['guest']['name']))
+		#requests.post(_serverIP + '/games/' + self.gameID.text() + '/' + 'home_name' + '/' + str(msg['home']['name']))
+		#requests.post(_serverIP + '/games/' + self.gameID.text() + '/' + 'guest_score' + '/' + self.GCOCRCoordinates["away_score"][7].text())
+		#requests.post(_serverIP + '/games/' + self.gameID.text() + '/' + 'home_score' + '/' + self.GCOCRCoordinates["home_score"][7].text())
 
 	def initializeStatisticsSelectors(self):
 		file_object = open(_athleteDataFilePath, 'rU')
@@ -333,18 +349,56 @@ class Window(QtGui.QWidget):
 		del(self.SCOCRWorker)
 
 	def GCOCRhandler(self, rx): # Receives [str(clock_1), str(clock_2), str(clock_3), str(clock_4), str(home_score), str(away_score), formatted_clock]
-		print rx
 		self.GCOCRCoordinates["clock_1"][7].setText(rx[0])
 		self.GCOCRCoordinates["clock_2"][7].setText(rx[1])
 		self.GCOCRCoordinates["clock_3"][7].setText(rx[2])
 		self.GCOCRCoordinates["clock_4"][7].setText(rx[3])
 		self.GCOCRCoordinates["home_score"][7].setText(rx[4])
 		self.GCOCRCoordinates["away_score"][7].setText(rx[5])
-	
+		self.GCOCRCoordinates["home_fouls"][7].setText(rx[7])
+		self.GCOCRCoordinates["away_fouls"][7].setText(rx[8])
+		self.GCOCRCoordinates["quarter"][7].setText(rx[9])
+		self.gameClock.setText(rx[6])
+
+		msg_game = {
+			"clock": rx[6],
+			'quarter': rx[9]
+		}
+		msg_guest = {
+			"score": rx[4],
+			"fouls": rx[8]
+		}
+		msg_home = {
+			"score": rx[5],
+			"fouls": rx[7]
+		}
+
+		packet = {
+			"game": msg_game,
+			"guest": msg_guest,
+			"home": msg_home
+		}
+
+		self.webSocketsWorker.send(json.dumps(packet))
+		#requests.post(_serverIP + '/games/' + self.gameID.text() + '/' + 'clock' + '/' + str(rx[6]))
+
+
 	def SCOCRhandler(self, digitList): # Receives [self.digitL, self.digitR] from SCOCRWorker
-		print digitList
 		self.SCOCRCoordinates["clock_1"][7].setText(digitList[0])
 		self.SCOCRCoordinates["clock_2"][7].setText(digitList[1])
+		self.shotClock.setText(digitList[2])
+
+		msg_game = {
+			"shot_clock": digitList[2]
+		}
+		packet = {
+			"game": msg_game
+		}
+
+		self.webSocketsWorker.send(json.dumps(packet))
+		#requests.post(_serverIP + '/games/' + self.gameID.text() + '/' + 'shot_clock' + '/' + str(digitList[2]))
+
+
 
 	def returnOCRCoordinatesList(self): # Returns 1:1 copy of self.GCOCRCoordinates without QObjects
 		response = {
@@ -354,6 +408,9 @@ class Window(QtGui.QWidget):
 			"clock_4": ["", "", "", "", "", "", "", ""],
 			"home_score": ["", "", "", "", "", "", "", ""],
 			"away_score": ["", "", "", "", "", "", "", ""],
+			"home_fouls": ["", "", "", "", "", "", "", ""],
+			"away_fouls": ["", "", "", "", "", "", "", ""],
+			"quarter": ["", "", "", "", "", "", "", ""],
 			"colon_top": ["", "", "", "", "", "", "", ""],
 			"blackout": ["", "", "", "", "", "", "", ""]
 		}
@@ -386,11 +443,13 @@ class Window(QtGui.QWidget):
 		grid = QtGui.QGridLayout()
 		grid.setHorizontalSpacing(10)
 		grid.setVerticalSpacing(10)
-		grid.addWidget(self.tickerTextRadio, 0, 0)
-		grid.addWidget(self.tickerTextLineEdit, 1, 0, 1, 2)
-		grid.addWidget(self.tickerStatsRadio, 2, 0)
-		grid.addWidget(self.tickerTeamSelector, 3, 0)
-		grid.addWidget(self.tickerPlayerSelector, 3, 1)
+		grid.addWidget(QtGui.QLabel("Quarter"), 1, 0)
+		grid.addWidget(self.quarter, 1, 1)
+		grid.addWidget(self.tickerTextRadio, 2, 0)
+		grid.addWidget(self.tickerTextLineEdit, 3, 0, 1, 2)
+		grid.addWidget(self.tickerStatsRadio, 4, 0)
+		grid.addWidget(self.tickerTeamSelector, 5, 0)
+		grid.addWidget(self.tickerPlayerSelector, 5, 1)
 
 		groupBox.setLayout(grid)
 		return groupBox
@@ -423,16 +482,19 @@ class Window(QtGui.QWidget):
 		grid.addWidget(QtGui.QLabel("Name"), 0, 1)
 		grid.addWidget(QtGui.QLabel("Image URL"), 0, 2)
 		grid.addWidget(QtGui.QLabel("Color #Hex "), 0, 3)
+		grid.addWidget(QtGui.QLabel("Fouls"), 0, 4)
 		grid.addWidget(QtGui.QLabel("Guest"), 1, 0)
 		#grid.addWidget(self.teamASelector, 1, 1)
 		grid.addWidget(self.teamAName, 1, 1)
 		grid.addWidget(self.teamAImagePath, 1, 2)
 		grid.addWidget(self.teamAColor, 1, 3)
+		grid.addWidget(self.teamAFouls, 1, 4)
 		grid.addWidget(QtGui.QLabel("Home"), 2, 0)
 		#grid.addWidget(self.teamBSelector, 2, 1)
 		grid.addWidget(self.teamBName, 2, 1)
 		grid.addWidget(self.teamBImagePath, 2, 2)
 		grid.addWidget(self.teamBColor, 2, 3)
+		grid.addWidget(self.teamBFouls, 2, 4)
 
 		grid.setColumnStretch(0,5)
 		grid.setColumnStretch(1,100)
@@ -464,7 +526,8 @@ class Window(QtGui.QWidget):
 		self.qsettings.setValue("SCssocrArguments", self.SCssocrArguments.text())
 		self.qsettings.setValue("SCwaitKey", self.SCwaitKey.text())
 		self.qsettings.setValue("SCvideoCaptureIndex", self.SCvideoCaptureIndex.text())
-
+		self.qsettings.setValue("gameID", self.gameID.text())
+		
 		try:
 			self.GCOCRWorker.importOCRCoordinates(self.returnOCRCoordinatesList())
 			self.GCOCRWorker.ssocrArguments = self.ssocrArguments.text()
@@ -534,10 +597,16 @@ class Window(QtGui.QWidget):
 			grid.addWidget(qobj, 7, index)
 		for index, qobj in enumerate(self.GCOCRCoordinates["away_score"]):
 			grid.addWidget(qobj, 8, index)
-		for index, qobj in enumerate(self.GCOCRCoordinates["colon_top"]):
+		for index, qobj in enumerate(self.GCOCRCoordinates["home_fouls"]):
+			grid.addWidget(qobj, 9, index)
+		for index, qobj in enumerate(self.GCOCRCoordinates["away_fouls"]):
 			grid.addWidget(qobj, 10, index)
-		for index, qobj in enumerate(self.GCOCRCoordinates["blackout"]):
+		for index, qobj in enumerate(self.GCOCRCoordinates["quarter"]):
 			grid.addWidget(qobj, 11, index)
+		for index, qobj in enumerate(self.GCOCRCoordinates["colon_top"]):
+			grid.addWidget(qobj, 12, index)
+		for index, qobj in enumerate(self.GCOCRCoordinates["blackout"]):
+			grid.addWidget(qobj, 13, index)
 
 
 		grid.setColumnMinimumWidth(1, 30)
@@ -632,7 +701,6 @@ class Window(QtGui.QWidget):
 		groupBox.setLayout(grid)
 		return groupBox
 
-
 	def createSC_SSOCR_Group(self):
 		groupBox = QtGui.QGroupBox("Shot Clock Parameters")
 		groupBox.setStyleSheet(GroupBoxStyleSheet)
@@ -660,9 +728,6 @@ class Window(QtGui.QWidget):
 		groupBox.setLayout(grid)
 		return groupBox
 
-
-
-
 	def createDebugGroup(self):
 		groupBox = QtGui.QGroupBox("Debug")
 		groupBox.setStyleSheet(GroupBoxStyleSheet)
@@ -671,13 +736,33 @@ class Window(QtGui.QWidget):
 		grid.setHorizontalSpacing(10)
 		grid.setVerticalSpacing(5)
 
+		largeFont = QtGui.QFont()
+		largeFont.setPointSize(22)
+
+		self.CPUpercentage.setFont(largeFont)
+		self.gameClock.setFont(largeFont)
+		self.shotClock.setFont(largeFont)
+
 		grid.addWidget(self.CPUpercentage, 0, 0)
-		#grid.addWidget(self.terminateOCRButton, 0, 1)
+		grid.addWidget(self.gameClock, 0, 1)
+		grid.addWidget(self.shotClock, 0, 2)
 
 		groupBox.setLayout(grid)
 		return groupBox
 
+	def createAPIGroup(self):
+		groupBox = QtGui.QGroupBox("API Server")
+		groupBox.setStyleSheet(GroupBoxStyleSheet)
 
+		grid = QtGui.QGridLayout()
+		grid.setHorizontalSpacing(10)
+		grid.setVerticalSpacing(5)
+
+		grid.addWidget(QtGui.QLabel("Game ID: "), 0, 0)
+		grid.addWidget(self.gameID, 0, 1)
+
+		groupBox.setLayout(grid)
+		return groupBox
 
 
 class WebSocketsWorker(QtCore.QThread):
@@ -784,10 +869,15 @@ class GCOCRWorker(QtCore.QThread):
 			"clock_4": [0, 0, 0]
 			}
 		self.FIFO_scores = {
-			"home": [0, 0, 0, 0, 0, 0, 0], 
-			"away": [0, 0, 0, 0, 0, 0, 0]
-			}
-
+			"home": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 
+			"away": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+		}
+		self.FIFO_fouls = {
+			"home": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 
+			"away": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+		}
+		self.FIFO_quarter = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+ 
 		self.previousDigit = {
 			"clock_1": 0, 
 			"clock_2": 0, 
@@ -822,8 +912,8 @@ class GCOCRWorker(QtCore.QThread):
 			print "Webcam native resolution: ",
 			print self.cam.get(cv.CV_CAP_PROP_FRAME_WIDTH), self.cam.get(cv.CV_CAP_PROP_FRAME_HEIGHT)
 
-			self.cam.set(cv.CV_CAP_PROP_FRAME_WIDTH, 640)
-			self.cam.set(cv.CV_CAP_PROP_FRAME_HEIGHT, 480)
+			self.cam.set(cv.CV_CAP_PROP_FRAME_WIDTH, 426)
+			self.cam.set(cv.CV_CAP_PROP_FRAME_HEIGHT, 320)
 
 			namedWindow("GC OCR Webcam", CV_WINDOW_AUTOSIZE)
 			namedWindow("GC SSOCR", CV_WINDOW_AUTOSIZE)
@@ -847,6 +937,7 @@ class GCOCRWorker(QtCore.QThread):
 
 					##### SHOW PRELIMINARY PROCESSED IMAGE WITH BOUNDING BOXES, X, Y #####
 					ssocr_img = imread(_GCssocrProcessedFilePath)
+					unprocessed_img = imread(_GCssocrProcessedFilePath)
 					putText(ssocr_img, str(self.mouse_coordinates[0]) + ", " + str(self.mouse_coordinates[1]), (5, 15), FONT_ITALIC, 0.4, (0,0,0))
 					rectangle(ssocr_img, (int('0' + self.coords["clock_1"][1]), int('0' + self.coords["clock_1"][2])), (int('0' + self.coords["clock_1"][3]), int('0' + self.coords["clock_1"][4])), (0,0,255), 1)
 					rectangle(ssocr_img, (int('0' + self.coords["clock_2"][1]), int('0' + self.coords["clock_2"][2])), (int('0' + self.coords["clock_2"][3]), int('0' + self.coords["clock_2"][4])), (0,0,255), 1)
@@ -854,6 +945,9 @@ class GCOCRWorker(QtCore.QThread):
 					rectangle(ssocr_img, (int('0' + self.coords["clock_4"][1]), int('0' + self.coords["clock_4"][2])), (int('0' + self.coords["clock_4"][3]), int('0' + self.coords["clock_4"][4])), (0,0,255), 1)
 					rectangle(ssocr_img, (int('0' + self.coords["home_score"][1]), int('0' + self.coords["home_score"][2])), (int('0' + self.coords["home_score"][3]), int('0' + self.coords["home_score"][4])), (0,0,255), 1)
 					rectangle(ssocr_img, (int('0' + self.coords["away_score"][1]), int('0' + self.coords["away_score"][2])), (int('0' + self.coords["away_score"][3]), int('0' + self.coords["away_score"][4])), (0,0,255), 1)
+					rectangle(ssocr_img, (int('0' + self.coords["home_fouls"][1]), int('0' + self.coords["home_fouls"][2])), (int('0' + self.coords["home_fouls"][3]), int('0' + self.coords["home_fouls"][4])), (0,0,255), 1)
+					rectangle(ssocr_img, (int('0' + self.coords["away_fouls"][1]), int('0' + self.coords["away_fouls"][2])), (int('0' + self.coords["away_fouls"][3]), int('0' + self.coords["away_fouls"][4])), (0,0,255), 1)
+					rectangle(ssocr_img, (int('0' + self.coords["quarter"][1]), int('0' + self.coords["quarter"][2])), (int('0' + self.coords["quarter"][3]), int('0' + self.coords["quarter"][4])), (0,0,255), 1)
 					rectangle(ssocr_img, (int('0' + self.coords["colon_top"][1]), int('0' + self.coords["colon_top"][2])), (int('0' + self.coords["colon_top"][3]), int('0' + self.coords["colon_top"][4])), (0,0,255), 1)
 					imshow("GC SSOCR", ssocr_img)
 
@@ -870,6 +964,12 @@ class GCOCRWorker(QtCore.QThread):
 					_home_score = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
 					_command = _ssocrFilePath + ' crop ' + self.coords["away_score"][1] + ' ' + self.coords["away_score"][2] + ' ' + self.coords["away_score"][5] + ' ' + self.coords["away_score"][6] + ' ' + _GCssocrProcessedFilePath + ' -d -1 --debug-image=' + _awayScoreFilePath
 					_away_score = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
+					_command = _ssocrFilePath + ' crop ' + self.coords["home_fouls"][1] + ' ' + self.coords["home_fouls"][2] + ' ' + self.coords["home_fouls"][5] + ' ' + self.coords["home_fouls"][6] + ' ' + _GCssocrProcessedFilePath + ' -d -1 --debug-image=' + _awayScoreFilePath
+					_home_fouls = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
+					_command = _ssocrFilePath + ' crop ' + self.coords["away_fouls"][1] + ' ' + self.coords["away_fouls"][2] + ' ' + self.coords["away_fouls"][5] + ' ' + self.coords["away_fouls"][6] + ' ' + _GCssocrProcessedFilePath + ' -d -1 --debug-image=' + _awayScoreFilePath
+					_away_fouls = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
+					_command = _ssocrFilePath + ' crop ' + self.coords["quarter"][1] + ' ' + self.coords["quarter"][2] + ' ' + self.coords["quarter"][5] + ' ' + self.coords["quarter"][6] + ' ' + _GCssocrProcessedFilePath + ' -d -1 --debug-image=' + _awayScoreFilePath
+					_quarter = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
 
 					clock_1 = self.cleanInt(_clock_1.stdout.read(), 1)
 					clock_2 = self.cleanInt(_clock_2.stdout.read(), 1)
@@ -877,9 +977,12 @@ class GCOCRWorker(QtCore.QThread):
 					clock_4 = self.cleanInt(_clock_4.stdout.read(), 1)
 					home_score = self.cleanInt(_home_score.stdout.read(), 3)
 					away_score = self.cleanInt(_away_score.stdout.read(), 3)
+					home_fouls = self.cleanInt(_home_fouls.stdout.read(), 2)
+					away_fouls = self.cleanInt(_away_fouls.stdout.read(), 2)
+					quarter = self.cleanInt(_quarter.stdout.read(), 1)
 
 					##### FILTER ALGORITHM #####
-					print "Raw:\t\t", clock_1, clock_2, clock_3, clock_4, home_score, away_score
+					print "Raw:\t\t", clock_1, clock_2, clock_3, clock_4, home_score, away_score, home_fouls, away_fouls, quarter
 
 					self.FIFO_clocks['clock_1'].append(clock_1)
 					self.FIFO_clocks['clock_1'].pop(0)
@@ -893,6 +996,12 @@ class GCOCRWorker(QtCore.QThread):
 					self.FIFO_scores['home'].pop(0)
 					self.FIFO_scores['away'].append(away_score)
 					self.FIFO_scores['away'].pop(0)
+					self.FIFO_fouls['home'].append(home_fouls)
+					self.FIFO_fouls['home'].pop(0)
+					self.FIFO_fouls['away'].append(away_fouls)
+					self.FIFO_fouls['away'].pop(0)
+					self.FIFO_quarter.append(quarter)
+					self.FIFO_quarter.pop(0)
 
 					print "Clock 1 FIFO:", self.FIFO_clocks['clock_1']
 					print "Clock 2 FIFO:", self.FIFO_clocks['clock_2']
@@ -900,6 +1009,9 @@ class GCOCRWorker(QtCore.QThread):
 					print "Clock 4 FIFO:", self.FIFO_clocks['clock_4']
 					print "Score Home FIFO:", self.FIFO_scores['home']
 					print "Score Away FIFO:", self.FIFO_scores['away']
+					print "Fouls Home FIFO:", self.FIFO_fouls['home']
+					print "Fouls Away FIFO:", self.FIFO_fouls['away']
+					print "Quarter FIFO:", self.FIFO_quarter
 
 
 					if(self.FIFO_clocks['clock_1'][2] == self._allowedNextDigits["clock_1"][self.FIFO_clocks['clock_1'][1]]):
@@ -920,24 +1032,31 @@ class GCOCRWorker(QtCore.QThread):
 
 					home_score = sorted(self.FIFO_scores['home'], key=self.FIFO_scores['home'].count)[-1]
 					away_score = sorted(self.FIFO_scores['away'], key=self.FIFO_scores['away'].count)[-1]
+					home_fouls = sorted(self.FIFO_fouls['home'], key=self.FIFO_fouls['home'].count)[-1]
+					away_fouls = sorted(self.FIFO_fouls['away'], key=self.FIFO_fouls['away'].count)[-1]
+					quarter = sorted(self.FIFO_quarter, key=self.FIFO_quarter.count)[-1]
 
-					print "Filtered:\t", clock_1, clock_2, clock_3, clock_4, home_score, away_score
+					print "Filtered:\t", clock_1, clock_2, clock_3, clock_4, home_score, away_score, home_fouls, away_fouls, quarter
 
 					##### COLON PROCESSING #####
-					colon_top_cropped = ssocr_img[int('0' + self.coords["colon_top"][2]):int('0' + self.coords["colon_top"][4]), int('0' + self.coords["colon_top"][1]):int('0' + self.coords["colon_top"][3])]
+					colon_top_cropped = unprocessed_img[int('0' + self.coords["colon_top"][2]):int('0' + self.coords["colon_top"][4]), int('0' + self.coords["colon_top"][1]):int('0' + self.coords["colon_top"][3])]
+					print "Colon mean:", colon_top_cropped.mean()
 
 					##### TEXTUAL FORMATTING ######
 					_minutes = str(int('0' + str(clock_1) + str(clock_2)))
 					_seconds = str(int('0' + str(clock_3) + str(clock_4)))
 					if(len(_seconds) == 1): _seconds = '0' + _seconds
-					formatted_clock = _minutes + ":" + _seconds
+					if(colon_top_cropped.mean() >= 250):
+						formatted_clock = ":" + _minutes
+					else:
+						formatted_clock = _minutes + ":" + _seconds
 					
 					print formatted_clock
 					print ""
 					waitKey(int(self.waitKey))
-			 		self.processedFrameFlag.emit(1)
-			 		self.colonMean.emit(str(int(mean(threshold(colon_top_cropped, 100, 255, THRESH_BINARY)[1])[1])))
-			 		self.recognizedDigits.emit([str(clock_1), str(clock_2), str(clock_3), str(clock_4), str(home_score), str(away_score), formatted_clock])
+					self.processedFrameFlag.emit(1)
+					self.colonMean.emit(str(int(mean(threshold(colon_top_cropped, 100, 255, THRESH_BINARY)[1])[1])))
+					self.recognizedDigits.emit([str(clock_1), str(clock_2), str(clock_3), str(clock_4), str(home_score), str(away_score), formatted_clock, str(home_fouls), str(away_fouls), str(quarter)])
 
 		except:
 			self.error.emit(1)
@@ -964,6 +1083,7 @@ class SCOCRWorker(QtCore.QThread):
 		self.digitL = ''
 		self.digitR = ''
 
+		self.FIFO_digitL = [0, 0, 0]
 
 	def mouse_hover_coordinates(self, event, x, y, flags, param):
 		if event == EVENT_MOUSEMOVE:
@@ -971,18 +1091,65 @@ class SCOCRWorker(QtCore.QThread):
 
 	def loadReferenceMatrices(self):
 		self.referenceDigits = [
-		[imread(os.path.join(_applicationPath, 'ref_digits/0A.png'), 0)],
-		[imread(os.path.join(_applicationPath, 'ref_digits/1A.png'), 0), imread(os.path.join(_applicationPath, 'ref_digits/1B.png'), 0)],
-		[imread(os.path.join(_applicationPath, 'ref_digits/2A.png'), 0)],
-		[imread(os.path.join(_applicationPath, 'ref_digits/3A.png'), 0)],
-		[imread(os.path.join(_applicationPath, 'ref_digits/4A.png'), 0)],
-		[imread(os.path.join(_applicationPath, 'ref_digits/5A.png'), 0)],
-		[imread(os.path.join(_applicationPath, 'ref_digits/6A.png'), 0)],
-		[imread(os.path.join(_applicationPath, 'ref_digits/7A.png'), 0), imread(os.path.join(_applicationPath, 'ref_digits/7B.png'), 0)],
-		[imread(os.path.join(_applicationPath, 'ref_digits/8A.png'), 0)],
-		[imread(os.path.join(_applicationPath, 'ref_digits/9A.png'), 0)]
+			[
+			imread(os.path.join(_applicationPath, 'ref_digits/0A.png'), 0), 
+			imread(os.path.join(_applicationPath, 'ref_digits/0B.png'), 0), 
+			imread(os.path.join(_applicationPath, 'ref_digits/0C.png'), 0), 
+			imread(os.path.join(_applicationPath, 'ref_digits/0D.png'), 0), 
+			imread(os.path.join(_applicationPath, 'ref_digits/0E.png'), 0)
+			],
+			[
+			imread(os.path.join(_applicationPath, 'ref_digits/1A.png'), 0), 
+			imread(os.path.join(_applicationPath, 'ref_digits/1B.png'), 0), 
+			imread(os.path.join(_applicationPath, 'ref_digits/1C.png'), 0), 
+			imread(os.path.join(_applicationPath, 'ref_digits/1D.png'), 0), 
+			imread(os.path.join(_applicationPath, 'ref_digits/1E.png'), 0), 
+			imread(os.path.join(_applicationPath, 'ref_digits/1F.png'), 0), 
+			imread(os.path.join(_applicationPath, 'ref_digits/1G.png'), 0), 
+			imread(os.path.join(_applicationPath, 'ref_digits/1H.png'), 0), 
+			imread(os.path.join(_applicationPath, 'ref_digits/1I.png'), 0),
+			imread(os.path.join(_applicationPath, 'ref_digits/1J.png'), 0)
+			],
+			[
+			imread(os.path.join(_applicationPath, 'ref_digits/2A.png'), 0), 
+			imread(os.path.join(_applicationPath, 'ref_digits/2B.png'), 0), 
+			imread(os.path.join(_applicationPath, 'ref_digits/2C.png'), 0), 
+			imread(os.path.join(_applicationPath, 'ref_digits/2D.png'), 0)
+			],
+			[
+			imread(os.path.join(_applicationPath, 'ref_digits/3A.png'), 0) 
+			],
+			[
+			imread(os.path.join(_applicationPath, 'ref_digits/4A.png'), 0) 
+			],
+			[
+			imread(os.path.join(_applicationPath, 'ref_digits/5A.png'), 0) 
+			],
+			[
+			imread(os.path.join(_applicationPath, 'ref_digits/6A.png'), 0), 
+			imread(os.path.join(_applicationPath, 'ref_digits/6B.png'), 0), 
+			imread(os.path.join(_applicationPath, 'ref_digits/6C.png'), 0), 
+			imread(os.path.join(_applicationPath, 'ref_digits/6D.png'), 0), 
+			imread(os.path.join(_applicationPath, 'ref_digits/6E.png'), 0), 
+			imread(os.path.join(_applicationPath, 'ref_digits/6F.png'), 0)
+			],
+			[
+			imread(os.path.join(_applicationPath, 'ref_digits/7A.png'), 0), 
+			imread(os.path.join(_applicationPath, 'ref_digits/7B.png'), 0)
+			],
+			[
+			imread(os.path.join(_applicationPath, 'ref_digits/8A.png'), 0)
+			],
+			[
+			imread(os.path.join(_applicationPath, 'ref_digits/9A.png'), 0), 
+			imread(os.path.join(_applicationPath, 'ref_digits/9B.png'), 0), 
+			imread(os.path.join(_applicationPath, 'ref_digits/9C.png'), 0), 
+			imread(os.path.join(_applicationPath, 'ref_digits/9D.png'), 0), 
+			imread(os.path.join(_applicationPath, 'ref_digits/9E.png'), 0), 
+			imread(os.path.join(_applicationPath, 'ref_digits/9F.png'), 0),
+			imread(os.path.join(_applicationPath, 'ref_digits/9G.png'), 0)
+			]
 		]
-
 	def importOCRCoordinates(self, OCRCoordinatesList):
 		self.coords = OCRCoordinatesList
 
@@ -992,13 +1159,13 @@ class SCOCRWorker(QtCore.QThread):
 	def run(self):
 		try:
 			self.cam = VideoCapture(int(self.videoCaptureIndex))   # 0 -> index of camera
-			#self.cam = VideoCapture('test_images/shot_clock_test.mov')   # 0 -> index of camera
+			#self.cam = VideoCapture('test_images/shot_clock.mov')   # 0 -> index of camera
 			
 			print "Webcam native resolution: ",
 			print self.cam.get(cv.CV_CAP_PROP_FRAME_WIDTH), self.cam.get(cv.CV_CAP_PROP_FRAME_HEIGHT)
 
-			self.cam.set(cv.CV_CAP_PROP_FRAME_WIDTH, 320)
-			self.cam.set(cv.CV_CAP_PROP_FRAME_HEIGHT, 240)
+			self.cam.set(cv.CV_CAP_PROP_FRAME_WIDTH, 640)
+			self.cam.set(cv.CV_CAP_PROP_FRAME_HEIGHT, 480)
 
 			namedWindow("Shot Clock OCR Webcam", CV_WINDOW_AUTOSIZE)
 			namedWindow("Shot Clock SSOCR", CV_WINDOW_AUTOSIZE)
@@ -1025,20 +1192,28 @@ class SCOCRWorker(QtCore.QThread):
 					preprocessing = subprocess.Popen(_command, stdout=subprocess.PIPE, shell=True)
 
 					##### SHOW PRELIMINARY PROCESSED IMAGE WITH BOUNDING BOXES, X, Y #####
-					ssocr_img = imread(_SCssocrProcessedFilePath)
-					putText(ssocr_img, str(self.mouse_coordinates[0]) + ", " + str(self.mouse_coordinates[1]), (5, 15), FONT_ITALIC, 0.4, (0,0,0))
-					rectangle(ssocr_img, (int('0' + self.coords["clock_1"][1]), int('0' + self.coords["clock_1"][2])), (int('0' + self.coords["clock_1"][3]), int('0' + self.coords["clock_1"][4])), (0,0,255), 1)
-					rectangle(ssocr_img, (int('0' + self.coords["clock_2"][1]), int('0' + self.coords["clock_2"][2])), (int('0' + self.coords["clock_2"][3]), int('0' + self.coords["clock_2"][4])), (0,0,255), 1)
-					imshow("Shot Clock SSOCR", ssocr_img)
+					disp_img = imread(_SCssocrProcessedFilePath)
+					putText(disp_img, str(self.mouse_coordinates[0]) + ", " + str(self.mouse_coordinates[1]), (5, 15), FONT_ITALIC, 0.4, (0,0,0))
+					rectangle(disp_img, (int('0' + self.coords["clock_1"][1]), int('0' + self.coords["clock_1"][2])), (int('0' + self.coords["clock_1"][3]), int('0' + self.coords["clock_1"][4])), (0,0,255), 1)
+					rectangle(disp_img, (int('0' + self.coords["clock_2"][1]), int('0' + self.coords["clock_2"][2])), (int('0' + self.coords["clock_2"][3]), int('0' + self.coords["clock_2"][4])), (0,255,0), 1)
+					imshow("Shot Clock SSOCR", disp_img)
 
 
-					##### CROP IMAGES TO BOUNDING BOX #####
+					##### CROP IMAGES TO BOUNDING BOX, INVERT, RUN CROPPING ALGORITHM #####
+					ssocr_img = imread(_SCssocrProcessedFilePath, CV_LOAD_IMAGE_GRAYSCALE)
 					clock_1 = ssocr_img[int('0' + self.coords["clock_1"][2]):int('0' + self.coords["clock_1"][4]), int('0' + self.coords["clock_1"][1]):int('0' + self.coords["clock_1"][3])]
 					clock_2 = ssocr_img[int('0' + self.coords["clock_2"][2]):int('0' + self.coords["clock_2"][4]), int('0' + self.coords["clock_2"][1]):int('0' + self.coords["clock_2"][3])]
 
-					##### RESIZE WITH NEAREST NEIGHBOR, then CONVERT TO GRAYSCALE, then THRESHOLD to 0/255 #####
-					ret, _clock_1_resized = threshold(cvtColor(resize(clock_1, (5, 7), 1, 1, INTER_NEAREST), cv.CV_BGR2GRAY), 127, 255, THRESH_BINARY)
-					ret, _clock_2_resized = threshold(cvtColor(resize(clock_2, (5, 7), 1, 1, INTER_NEAREST), cv.CV_BGR2GRAY), 127, 255, THRESH_BINARY)
+					_,inv_clock_1 = threshold(clock_1, 127, 255, THRESH_BINARY_INV)
+					_,inv_clock_2 = threshold(clock_2, 127, 255, THRESH_BINARY_INV)
+					clock_1 = autocrop(inv_clock_1, 10)
+					clock_2 = autocrop(inv_clock_2, 10)
+					
+					##### RESIZE WITH NEAREST NEIGHBOR, then INVERT #####
+					ret, _clock_1_resized = threshold(resize(clock_1, (5, 7), 1, 1, INTER_NEAREST), 127, 255, THRESH_BINARY_INV)
+					ret, _clock_2_resized = threshold(resize(clock_2, (5, 7), 1, 1, INTER_NEAREST), 127, 255, THRESH_BINARY_INV)
+					ret, _clock_2_resized_burnout_compensation = threshold(resize(clock_2, (5, 7), 1, 1, INTER_NEAREST), 127, 255, THRESH_BINARY_INV)
+					_clock_2_resized_burnout_compensation[3][3] = 0
 
 					##### SHOW PROCESSED IMAGES #####
 					imshow("Digit 1", resize(_clock_1_resized, (50, 70), 1, 1, INTER_NEAREST))
@@ -1051,11 +1226,26 @@ class SCOCRWorker(QtCore.QThread):
 								self.digitL = index
 							if((_clock_2_resized == digit).all()):
 								self.digitR = index
+							if((_clock_2_resized_burnout_compensation == digit).all()):
+								self.digitR = index
+
+					##### PATTERN RECOGNITION ALGORITHM #####
+					if((self.digitL > 2)): # If <10s and >2s, left digit is seconds left
+						formatted_clock = self.digitL
+					else:
+						formatted_clock = str(self.digitL) + str(self.digitR)
+
+					if(self.FIFO_digitL[2] != self.digitL):
+						self.FIFO_digitL.append(self.digitL)
+						self.FIFO_digitL.pop(0)
+						print self.FIFO_digitL
+
+
 
 
 					waitKey(int(self.waitKey))
-			 		self.processedFrameFlag.emit(1)
-			 		self.recognizedDigits.emit([str(self.digitL), str(self.digitR)])
+					self.processedFrameFlag.emit(1)
+					self.recognizedDigits.emit([str(self.digitL), str(self.digitR), str(formatted_clock)])
 
 
 
