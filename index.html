@@ -59,7 +59,7 @@
 					ticker: ko.observable(""),
 					game: {
 						clock: ko.observable("12:00"),
-						shot_clock: ko.observable("24"),
+						shot_clock: ko.observable(""),
 						quarter: ko.observable("1st"),
 						possesion: ko.observable(""),
 					},
@@ -112,17 +112,17 @@
     -webkit-transform: scale(0.8);
     margin-left: 130px;'>
 
-				<div class='foul' style='left: 200px;' data-bind='visible: homeFouls() >= 1'></div>
-				<div class='foul' style='left: 225px;' data-bind='visible: homeFouls() >= 2'></div>
-				<div class='foul' style='left: 250px;' data-bind='visible: homeFouls() >= 3'></div>
-				<div class='foul' style='left: 275px;' data-bind='visible: homeFouls() >= 4'></div>
-				<div class='foul' style='left: 300px;' data-bind='visible: homeFouls() >= 5'></div>
+				<div class='foul' style='left: 200px;' data-bind='visible: guestFouls() >= 1'></div>
+				<div class='foul' style='left: 225px;' data-bind='visible: guestFouls() >= 2'></div>
+				<div class='foul' style='left: 250px;' data-bind='visible: guestFouls() >= 3'></div>
+				<div class='foul' style='left: 275px;' data-bind='visible: guestFouls() >= 4'></div>
+				<div class='foul' style='left: 300px;' data-bind='visible: guestFouls() >= 5'></div>
 
-				<div class='foul' style='left: 440px;' data-bind='visible: guestFouls() >= 1'></div>
-				<div class='foul' style='left: 465px;' data-bind='visible: guestFouls() >= 2'></div>
-				<div class='foul' style='left: 490px;' data-bind='visible: guestFouls() >= 3'></div>
-				<div class='foul' style='left: 515px;' data-bind='visible: guestFouls() >= 4'></div>
-				<div class='foul' style='left: 540px;' data-bind='visible: guestFouls() >= 5'></div>
+				<div class='foul' style='left: 440px;' data-bind='visible: homeFouls() >= 1'></div>
+				<div class='foul' style='left: 465px;' data-bind='visible: homeFouls() >= 2'></div>
+				<div class='foul' style='left: 490px;' data-bind='visible: homeFouls() >= 3'></div>
+				<div class='foul' style='left: 515px;' data-bind='visible: homeFouls() >= 4'></div>
+				<div class='foul' style='left: 540px;' data-bind='visible: homeFouls() >= 5'></div>
 				<div id="scorebox_container">
 					<img id="bg_scoreboard" src='static/scoreboard.png'></img>
 					<div id="logo_container">
@@ -130,7 +130,7 @@
 					</div>
 
 					<div id="shotclock_container">
-						<h3 data-bind='text: game.shot_clock()'>24</h3>
+						<h3 data-bind='text: game.shot_clock()'></h3>
 					</div>
 					<div id="clock_container">
 						<h3 data-bind='text: game.clock()'>5:43</h3>
