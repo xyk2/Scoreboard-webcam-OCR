@@ -1049,8 +1049,10 @@ class GCOCRWorker(QtCore.QThread):
 
 					if(colon_top_cropped.mean() >= 250):
 						formatted_clock = ":" + _minutes
-					elif((colon_top_cropped.mean() >= 250) and (_minutes == '0')):
-						formatted_clock = "." + _seconds
+					if((colon_top_cropped.mean() >= 250) and (_minutes == '0')):
+						formatted_clock = "：1" 
+					if((colon_top_cropped.mean() >= 250) and (_minutes == '0') and (_seconds == '0')):
+						formatted_clock = "：0" 
 					else:
 						formatted_clock = _minutes + ":" + _seconds
 					
