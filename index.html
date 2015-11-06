@@ -11,6 +11,7 @@
 
 		<script>
 			$(document).ready(function() {
+				$.ajaxSetup({ cache: false });
 				var sock = null;
 				var ellog = null;
 				window.onload = function() {
@@ -57,9 +58,10 @@
 
 				vm = {
 					ticker: ko.observable(""),
+					gameID: ko.observable(""),
 					game: {
 						clock: ko.observable("12:00"),
-						shot_clock: ko.observable(""),
+						shot_clock: ko.observable("24"),
 						quarter: ko.observable("1st"),
 						possesion: ko.observable(""),
 					},
@@ -68,14 +70,14 @@
 						fouls: ko.observable(""),
 						name: ko.observable(""),
 						imagePath: ko.observable(""),
-						color: ko.observable("")
+						color: ko.observable("#6C6C6C")
 					},
 					home: {
 						score: ko.observable("0"),
 						fouls: ko.observable(""),
 						name: ko.observable(""),
 						imagePath: ko.observable(""),
-						color: ko.observable("")
+						color: ko.observable("#6C6C6C")
 					}
 				}
 
@@ -101,6 +103,15 @@
 			    }, viewModel);
 
 				ko.applyBindings(viewModel);
+
+
+				var getUpdates = setInterval(function() {
+				    $.getJSON(
+				        "http://www.choxue.com/zh-tw/livedash/" + viewModel.gameID() + "/scoreboard.json", {},
+				        function (model) {
+				            ko.mapping.fromJS(model, viewModel);
+				        });
+				}, 1500);
 			});
 		</script>
 	<body>
@@ -112,17 +123,17 @@
     -webkit-transform: scale(0.8);
     margin-left: 130px;'>
 
-				<div class='foul' style='left: 200px;' data-bind='visible: guestFouls() >= 1'></div>
-				<div class='foul' style='left: 225px;' data-bind='visible: guestFouls() >= 2'></div>
-				<div class='foul' style='left: 250px;' data-bind='visible: guestFouls() >= 3'></div>
-				<div class='foul' style='left: 275px;' data-bind='visible: guestFouls() >= 4'></div>
-				<div class='foul' style='left: 300px;' data-bind='visible: guestFouls() >= 5'></div>
+				<div class='foul' style='left: 200px;' data-bind='visible: homeFouls() >= 1'></div>
+				<div class='foul' style='left: 225px;' data-bind='visible: homeFouls() >= 2'></div>
+				<div class='foul' style='left: 250px;' data-bind='visible: homeFouls() >= 3'></div>
+				<div class='foul' style='left: 275px;' data-bind='visible: homeFouls() >= 4'></div>
+				<div class='foul' style='left: 300px;' data-bind='visible: homeFouls() >= 5'></div>
 
-				<div class='foul' style='left: 440px;' data-bind='visible: homeFouls() >= 1'></div>
-				<div class='foul' style='left: 465px;' data-bind='visible: homeFouls() >= 2'></div>
-				<div class='foul' style='left: 490px;' data-bind='visible: homeFouls() >= 3'></div>
-				<div class='foul' style='left: 515px;' data-bind='visible: homeFouls() >= 4'></div>
-				<div class='foul' style='left: 540px;' data-bind='visible: homeFouls() >= 5'></div>
+				<div class='foul' style='left: 440px;' data-bind='visible: guestFouls() >= 1'></div>
+				<div class='foul' style='left: 465px;' data-bind='visible: guestFouls() >= 2'></div>
+				<div class='foul' style='left: 490px;' data-bind='visible: guestFouls() >= 3'></div>
+				<div class='foul' style='left: 515px;' data-bind='visible: guestFouls() >= 4'></div>
+				<div class='foul' style='left: 540px;' data-bind='visible: guestFouls() >= 5'></div>
 				<div id="scorebox_container">
 					<img id="bg_scoreboard" src='static/scoreboard.png'></img>
 					<div id="logo_container">
@@ -133,17 +144,17 @@
 						<h3 data-bind='text: game.shot_clock()'></h3>
 					</div>
 					<div id="clock_container">
-						<h3 data-bind='text: game.clock()'>5:43</h3>
+						<h3 data-bind='text: game.clock()'></h3>
 					</div>
 					<div id="quarter_container">
-						<h3 data-bind='text: computedQuarter()'>2nd</h3>
+						<h3 data-bind='text: computedQuarter()'></h3>
 					</div>
 
 					<div id="away_logo_container" class="logo_container">
 						<img data-bind='attr: {src: guest.imagePath() }'>
 					</div>
 					<div id="away_score_container">
-						<h3 data-bind='text: guest.score()'>99</h3>
+						<h3 data-bind='text: guest.score()'></h3>
 					</div>
 					<div id="away_name_container" class='name_container' data-bind='style: { backgroundColor: guest.color() }'>
 						<h3 style='margin-left: 0px' data-bind='text: guest.name()'></h3>
@@ -154,14 +165,14 @@
 						<img data-bind='attr: {src: home.imagePath() }'>
 					</div>
 					<div id="home_score_container">
-						<h3 data-bind='text: home.score()'>99</h3>
+						<h3 data-bind='text: home.score()'></h3>
 					</div>
 					<div id="home_name_container" class='name_container' data-bind='style: { backgroundColor: home.color() }'>
 						<h3  style='margin-left: 0px' data-bind='text: home.name()'></h3>
 					</div>
 
 					<div id="subtitle_container">
-						<h3 data-bind='text: ticker()'>SBL SUMMER LEAGUE</h3>
+						<h3 data-bind='text: ticker()'></h3>
 					</div>
 				</div>
 			</div>
