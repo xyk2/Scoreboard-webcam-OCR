@@ -24,6 +24,11 @@ def shiftImage(img, x, y):
 
 image_out = None
 image_out = cvtColor(image, COLOR_BGR2HSV)
+_test_img =  image_out.convertToFormat(4)
+_test_img.width()
+
+
+
 
 rows,cols,_ = image_out.shape
 M = getRotationMatrix2D((cols/2,rows/2), -2.444, 1)
@@ -36,7 +41,7 @@ th3 = threshA + threshB + threshC
 ret3, th3 = threshold(th3, 127, 255, THRESH_BINARY_INV)
 img_processed = erode(th3, numpy.ones((2,2),numpy.uint8), iterations = 4)
 
-img_processed = shiftImage(img_processed, 0, -100)
+img_processed = shiftImage(img_processed, 100, 0)
 
 imshow("Processed", img_processed)
 

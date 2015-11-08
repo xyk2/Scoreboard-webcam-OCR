@@ -131,9 +131,7 @@ class Window(QtGui.QWidget):
 		self.tickerTextRadio = QtGui.QRadioButton("Text")
 		self.tickerStatsRadio = QtGui.QRadioButton("Player Stats")
 		self.tickerTextLineEdit = QtGui.QLineEdit(u"")
-		self.tickerTeamSelector = QtGui.QComboBox(self)
-		self.tickerPlayerSelector = QtGui.QComboBox(self)
-		self.selectedPlayerMetadata = ''
+		self.gameOverCheckBox = QtGui.QCheckBox("Game Over")
 
 
 		self.GCOCRCoordinates = {
@@ -166,14 +164,10 @@ class Window(QtGui.QWidget):
 		self.gameClock = QtGui.QLabel("00:00")
 		self.shotClock = QtGui.QLabel("00")
 
-		self.onAirStatsComboBoxes = [QtGui.QComboBox(self), QtGui.QComboBox(self), QtGui.QComboBox(self), QtGui.QComboBox(self), QtGui.QComboBox(self)]
-		self.tickerTeamSelector.currentIndexChanged.connect(self.populatePlayersSelector)
-		self.initializeStatisticsSelectors() # Populate self.tickerTeamSelector and self.onAirStatsComboBoxes
 		self.initializeOCRCoordinatesList()
 
 		grid.addWidget(self.createTeamNameGroup(), 0, 0, 2, 1) # MUST BE HERE, initializes all QObject lists
 		grid.addWidget(self.createTickerGraphicGroup(), 2, 0, 2, 1) # MUST BE HERE, initializes all QObject lists
-		grid.addWidget(self.createStatSelectorGroup(), 4, 0, 2, 1) # MUST BE HERE, initializes all QObject lists
 		grid.addWidget(self.createGC_OCR_Group(), 0, 2, 4, 1) # MUST BE HERE, initializes all QObject lists
 		grid.addWidget(self.createParametersGroup(), 4, 1, 1, 1) # MUST BE HERE, initializes all QObject lists
 		grid.addWidget(self.createCameraPreviewGroup(), 0, 1, 4, 1) # MUST BE HERE, initializes all QObject lists
@@ -202,6 +196,7 @@ class Window(QtGui.QWidget):
 		msg = {
 			'gameID': '',
 			'ticker': '',
+			'game_over': '',
 			'guest': { 
 						'imagePath': '',
 						'color': ''
@@ -217,79 +212,16 @@ class Window(QtGui.QWidget):
 		msg['home']['imagePath'] = self.teamBImagePath.text()
 		msg['home']['color'] = self.teamBColor.text()
 		msg['gameID'] = self.gameID.text().strip()
+		msg["game_over"] = self.gameOverCheckBox.isChecked()
 
 
 		if self.tickerRadioGroup.checkedId() == 0:
 			msg["ticker"] = self.tickerTextLineEdit.text()
 
-		if self.tickerRadioGroup.checkedId() == 1: # Player stats selected
-			file_object = open('athlete_data.csv', 'rU')
-			reader = unicodecsv.reader(file_object , delimiter=',', dialect='excel')
 
-			statIndexes = []
-			hrow = reader.next()
-
-			for x, comboBox in enumerate(self.onAirStatsComboBoxes):
-				try:
-					index = hrow.index(self.onAirStatsComboBoxes[x].currentText())
-				except ValueError: # No stat selected ("-")
-					index = -1
-				statIndexes.append({'index': index, 'statName': self.onAirStatsComboBoxes[x].currentText()})
-
-			for row in reader:
-				if(row[2] == self.tickerPlayerSelector.currentText()):
-					for x in statIndexes:
-						x["statText"] = row[x["index"]]
-
-			msg["ticker"] = self.tickerTeamSelector.currentText() + " " + self.tickerPlayerSelector.currentText() + " - "
-			for stat in statIndexes:
-				if(stat["index"] != -1):
-					msg["ticker"] += stat["statName"] + " " + stat["statText"] + " "
-
-			file_object.close() # Close opened CSV file
-
+		print msg
 		self.webSocketsWorker.send(json.dumps(msg));
 
-
-	def initializeStatisticsSelectors(self):
-		file_object = open(_athleteDataFilePath, 'rU')
-		reader = unicodecsv.reader(file_object , delimiter=',', dialect='excel')
-		hrow = reader.next()
-
-		unique_teams = []
-		for row in reader:
-			try:
-				unique_teams.index(row[1])
-			except ValueError: # If error is raised, means its not in unique list
-				unique_teams.append(row[1])
-				self.tickerTeamSelector.addItem(row[1])
-				#self.teamASelector.addItem(row[1])
-				#self.teamBSelector.addItem(row[1])
-
-		for x, comboBox in enumerate(self.onAirStatsComboBoxes):
-			self.onAirStatsComboBoxes[x].addItem("-")
-
-
-		for header in hrow: # For loop through column headers
-			for x, comboBox in enumerate(self.onAirStatsComboBoxes):
-				self.onAirStatsComboBoxes[x].addItem(header)
-
-
-
-		file_object.close()
-
-	def populatePlayersSelector(self):
-		file_object = open(_athleteDataFilePath, 'rU')
-		reader = unicodecsv.reader(file_object , delimiter=',', dialect='excel')
-		hrow = reader.next()
-
-		self.tickerPlayerSelector.clear() # Empty team ComboBox
-
-		for row in reader:
-			if(row[1] == self.tickerTeamSelector.currentText()):
-				self.tickerPlayerSelector.addItem(row[2]) # Add name to player selector comboBox
-
-		file_object.close()
 
 	def init_WebSocketsWorker(self):
 		self.webSocketsWorker = WebSocketsWorker()
@@ -362,7 +294,7 @@ class Window(QtGui.QWidget):
 
 		self.tickerRadioGroup.setExclusive(True)
 		self.tickerRadioGroup.addButton(self.tickerTextRadio, 0)
-		self.tickerRadioGroup.addButton(self.tickerStatsRadio, 1)
+		#self.tickerRadioGroup.addButton(self.tickerStatsRadio, 1)
 		self.tickerRadioGroup.button(0).setChecked(True)
 
 		grid = QtGui.QGridLayout()
@@ -370,27 +302,9 @@ class Window(QtGui.QWidget):
 		grid.setVerticalSpacing(10)
 		grid.addWidget(self.tickerTextRadio, 2, 0)
 		grid.addWidget(self.tickerTextLineEdit, 3, 0, 1, 2)
-		grid.addWidget(self.tickerStatsRadio, 4, 0)
-		grid.addWidget(self.tickerTeamSelector, 5, 0)
-		grid.addWidget(self.tickerPlayerSelector, 5, 1)
+		grid.addWidget(self.gameOverCheckBox, 4, 0)
+		#grid.addWidget(self.tickerStatsRadio, 4, 0)
 
-		groupBox.setLayout(grid)
-		return groupBox
-
-	def createStatSelectorGroup(self):
-		groupBox = QtGui.QGroupBox("On Air Statistics")
-		groupBox.setStyleSheet(GroupBoxStyleSheet)
-
-		grid = QtGui.QGridLayout()
-		grid.setHorizontalSpacing(10)
-		grid.setVerticalSpacing(5)
-
-		for x, comboBox in enumerate(self.onAirStatsComboBoxes):
-			grid.addWidget(QtGui.QLabel(str(x+1) + ":"), x, 0)
-			grid.addWidget(self.onAirStatsComboBoxes[x], x, 1)
-
-		grid.setColumnStretch(0,5)
-		grid.setColumnStretch(1,100)
 		groupBox.setLayout(grid)
 		return groupBox
 
@@ -554,6 +468,8 @@ class Window(QtGui.QWidget):
 		self.SCerosion.editingFinished.connect(self.widthHeightAutoFiller)
 		self.SCwaitKey.editingFinished.connect(self.widthHeightAutoFiller)
 		self.SCvideoCaptureIndex.editingFinished.connect(self.widthHeightAutoFiller)
+		self.SCcropLeft.editingFinished.connect(self.widthHeightAutoFiller)
+		self.SCcropTop.editingFinished.connect(self.widthHeightAutoFiller)
 
 		grid.setColumnStretch(0,50)
 		grid.setColumnStretch(1,25)
@@ -833,8 +749,8 @@ class SCOCRWorker(QtCore.QThread):
 
 	def run(self):
 		try:
-			#self.cam = VideoCapture(int(self.videoCaptureIndex))   # 0 -> index of camera
-			self.cam = VideoCapture('test_images/HDMI_UVC_2.mov')   # 0 -> index of camera
+			self.cam = VideoCapture(int(self.videoCaptureIndex))   # 0 -> index of camera
+			#self.cam = VideoCapture('test_images/HDMI_UVC_2.mov')   # 0 -> index of camera
 			
 			print "Webcam native resolution: ", self.cam.get(cv.CV_CAP_PROP_FRAME_WIDTH), self.cam.get(cv.CV_CAP_PROP_FRAME_HEIGHT)
 			self.cam.set(cv.CV_CAP_PROP_FRAME_WIDTH, 960)
@@ -858,22 +774,22 @@ class SCOCRWorker(QtCore.QThread):
 				if success:
 					imshow("Source Video", img)
 
-
+					print img.shape
 					##### CROP IMAGE ######
+					img_cropped = copyMakeBorder(img, 0, 0, 0, 0, BORDER_REPLICATE)
 					if(self.cropLeft >= 0):
-						ocock = img[0:img.shape[0], self.cropLeft:img.shape[1]]
-						img = ocock
-					#else:
-					#	img = copyMakeBorder(img,0,0,abs(self.cropLeft),0,BORDER_CONSTANT, value=[255,255,255])
-					#if(self.cropTop >= 0):
-					#	img = img[self.cropTop:img.shape[0], 0:img.shape[1]]
-					#else:
-					#	img = copyMakeBorder(img,abs(self.cropTop),0,0,0,BORDER_CONSTANT, value=[255,255,255])
+						img_cropped = img_cropped[0:img_cropped.shape[0], self.cropLeft:img_cropped.shape[1]]
+					elif(self.cropLeft < 0):
+						img_cropped = copyMakeBorder(img_cropped,0,0,abs(self.cropLeft),0,BORDER_CONSTANT, value=[255,255,255])
+					if(self.cropTop >= 0):
+						img_cropped = img_cropped[self.cropTop:img_cropped.shape[0], 0:img_cropped.shape[1]]
+					elif(self.cropTop < 0):
+						img_cropped = copyMakeBorder(img_cropped,abs(self.cropTop),0,0,0,BORDER_CONSTANT, value=[255,255,255])
 
 					#img = shiftImage(img, int(self.cropLeft), int(self.cropTop))
 
 					##### OPENCV PROCESSING TEST ######
-					img_HSV = cvtColor(img, COLOR_BGR2HSV)
+					img_HSV = cvtColor(img_cropped, COLOR_BGR2HSV)
 
 					rows,cols,_ = img_HSV.shape
 					M = getRotationMatrix2D((cols/2,rows/2), self.rotation, 1)
@@ -901,7 +817,6 @@ class SCOCRWorker(QtCore.QThread):
 					imshow("Bounding Boxes", img_disp)
 
 
-
 					##### CROP IMAGES TO BOUNDING BOX, INVERT, RUN CROPPING ALGORITHM #####
 					clock_1 = img_processed[int('0' + self.coords["clock_1"][2]):int('0' + self.coords["clock_1"][4]), int('0' + self.coords["clock_1"][1]):int('0' + self.coords["clock_1"][3])]
 					clock_2 = img_processed[int('0' + self.coords["clock_2"][2]):int('0' + self.coords["clock_2"][4]), int('0' + self.coords["clock_2"][1]):int('0' + self.coords["clock_2"][3])]
@@ -926,7 +841,6 @@ class SCOCRWorker(QtCore.QThread):
 					ret, _shot_clock_1_resized = threshold(resize(shot_clock_1, (5, 7), 1, 1, INTER_NEAREST), 127, 255, THRESH_BINARY_INV)
 					ret, _shot_clock_2_resized = threshold(resize(shot_clock_2, (5, 7), 1, 1, INTER_NEAREST), 127, 255, THRESH_BINARY_INV)
 
-					
 
 					##### SHOW PROCESSED IMAGES #####
 					imshow("Digit 1", resize(_clock_1_resized, (50, 70), 1, 1, INTER_NEAREST))
@@ -966,11 +880,11 @@ class SCOCRWorker(QtCore.QThread):
 
 
 					##### SEND QIMAGE TO DISPLAY IN PYSIDE WINDOW #####
-					#height, width, bPC = img.shape
-					#_ret_QImageRaw = QImage(img.data, width, height, bPC * width, QImage.Format_RGB888).rgbSwapped()
+					height, width, bPC = img.shape
+ 					_ret_QImageRaw = QImage(img.data, width, height, bPC * width, QImage.Format_RGB888).rgbSwapped()
 					height, width, bPC = img_disp.shape
 					_ret_QImageProcessed = QImage(img_disp.data, width, height, bPC * width, QImage.Format_RGB888).rgbSwapped()
-					#self.QImageFrame.emit([_ret_QImageRaw, _ret_QImageProcessed])
+					self.QImageFrame.emit([_ret_QImageRaw, _ret_QImageProcessed])
 
 
 					waitKey(int(self.waitKey))
