@@ -1,6 +1,7 @@
 # -*- mode: python -*-
 a = Analysis(['application.py'],
-             pathex=['/Users/XYK/Desktop/Dropbox/Choxue-scoreboard-OCR'],
+             pathex=['C:\Users\XYK\Desktop\Dropbox\Choxue-scoreboard-OCR'],
+            # pathex=['/Users/XYK/Desktop/Dropbox/Choxue-scoreboard-OCR'],
              hiddenimports=[],
              hookspath=None,
              runtime_hooks=None)

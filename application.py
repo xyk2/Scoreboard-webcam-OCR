@@ -749,8 +749,8 @@ class SCOCRWorker(QtCore.QThread):
 
 	def run(self):
 		try:
-			self.cam = VideoCapture(int(self.videoCaptureIndex))   # 0 -> index of camera
-			#self.cam = VideoCapture('test_images/HDMI_UVC_2.mov')   # 0 -> index of camera
+			#self.cam = VideoCapture(int(self.videoCaptureIndex))   # 0 -> index of camera
+			self.cam = VideoCapture('test_images/HDMI_UVC_2.mov')   # 0 -> index of camera
 			
 			print "Webcam native resolution: ", self.cam.get(cv.CV_CAP_PROP_FRAME_WIDTH), self.cam.get(cv.CV_CAP_PROP_FRAME_HEIGHT)
 			self.cam.set(cv.CV_CAP_PROP_FRAME_WIDTH, 960)
